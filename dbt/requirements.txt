@@ -1,0 +1,10 @@
+# DBT Core and Trino Adapter
+dbt-core>=1.6.0
+dbt-trino>=1.6.0
+
+# Additional useful packages (will install via dbt packages later)
+# dbt-utils>=1.1.1
+# dbt-date>=0.7.0
+
+# Development dependencies
+pytest>=7.0.0

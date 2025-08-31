@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - FOSS Data Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-6">
+                <div class="flex items-center">
+                    <a href="/" class="text-blue-600 hover:text-blue-800 mr-4">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </a>
+                    <h1 class="text-3xl font-bold text-gray-900">
+                        ⚙️ Platform Configuration
+                    </h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="saveConfig()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-save mr-2"></i>Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Configuration Tabs -->
+        <div class="mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8">
+                    <button onclick="showConfigTab('general')" class="config-tab active py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
+                        General Settings
+                    </button>
+                    <button onclick="showConfigTab('services')" class="config-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Service Configuration
+                    </button>
+                    <button onclick="showConfigTab('monitoring')" class="config-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Monitoring & Alerts
+                    </button>
+                    <button onclick="showConfigTab('security')" class="config-tab py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        Security Settings
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Configuration Content -->
+        <div class="bg-white rounded-lg shadow-md">
+            <!-- General Settings -->
+            <div id="general-config" class="config-content p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">General Platform Settings</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Environment</label>
+                        <select class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="development" {% if config.environment == 'development' %}selected{% endif %}>Development</option>
+                            <option value="staging" {% if config.environment == 'staging' %}selected{% endif %}>Staging</option>
+                            <option value="production" {% if config.environment == 'production' %}selected{% endif %}>Production</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Platform Name</label>
+                        <input type="text" value="FOSS Data Platform" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Data Directory</label>
+                        <input type="text" value="/data" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Log Level</label>
+                        <select class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO" selected>INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Configuration -->
+            <div id="services-config" class="config-content hidden p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Service Configuration Files</h3>
+                
+                <div class="space-y-4">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-medium text-gray-900">Docker Compose</h4>
+                                <p class="text-sm text-gray-600">{{ config.docker_compose }}</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-eye mr-1"></i>View
+                                </button>
+                                <button class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-medium text-gray-900">DBT Project</h4>
+                                <p class="text-sm text-gray-600">{{ config.dbt_project }}</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-eye mr-1"></i>View
+                                </button>
+                                <button class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-medium text-gray-900">Dagster Workspace</h4>
+                                <p class="text-sm text-gray-600">{{ config.dagster_workspace }}</p>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-eye mr-1"></i>View
+                                </button>
+                                <button class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monitoring & Alerts -->
+            <div id="monitoring-config" class="config-content hidden p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Monitoring & Alerting Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Prometheus Retention</label>
+                        <select class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="15d">15 days</option>
+                            <option value="30d" selected>30 days</option>
+                            <option value="60d">60 days</option>
+                            <option value="90d">90 days</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Metrics Collection Interval</label>
+                        <select class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="15s">15 seconds</option>
+                            <option value="30s" selected>30 seconds</option>
+                            <option value="1m">1 minute</option>
+                            <option value="5m">5 minutes</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Alert Manager URL</label>
+                        <input type="text" placeholder="http://localhost:9093" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Dashboard Auto-refresh</label>
+                        <select class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="30s">30 seconds</option>
+                            <option value="1m" selected>1 minute</option>
+                            <option value="5m">5 minutes</option>
+                            <option value="disabled">Disabled</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Settings -->
+            <div id="security-config" class="config-content hidden p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Security Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Authentication Method</label>
+                        <select class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="none">None (Development)</option>
+                            <option value="basic" selected>Basic Auth</option>
+                            <option value="oauth2">OAuth2</option>
+                            <option value="ldap">LDAP</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">HTTPS Enabled</label>
+                        <select class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="false" selected>False</option>
+                            <option value="true">True</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Session Timeout (minutes)</label>
+                        <input type="number" value="30" min="5" max="480" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Max Login Attempts</label>
+                        <input type="number" value="5" min="3" max="10" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Actions -->
+        <div class="mt-6 bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Configuration Actions</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <button class="bg-blue-100 hover:bg-blue-200 text-blue-800 p-4 rounded-lg text-center transition-colors">
+                    <i class="fas fa-download text-2xl mb-2"></i>
+                    <p class="font-medium">Export Config</p>
+                </button>
+                <button class="bg-green-100 hover:bg-green-200 text-green-800 p-4 rounded-lg text-center transition-colors">
+                    <i class="fas fa-upload text-2xl mb-2"></i>
+                    <p class="font-medium">Import Config</p>
+                </button>
+                <button class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 p-4 rounded-lg text-center transition-colors">
+                    <i class="fas fa-history text-2xl mb-2"></i>
+                    <p class="font-medium">Config History</p>
+                </button>
+                <button class="bg-red-100 hover:bg-red-200 text-red-800 p-4 rounded-lg text-center transition-colors">
+                    <i class="fas fa-undo text-2xl mb-2"></i>
+                    <p class="font-medium">Reset to Default</p>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showConfigTab(tabName) {
+            // Hide all config content
+            const configContents = document.querySelectorAll('.config-content');
+            configContents.forEach(content => content.classList.add('hidden'));
+            
+            // Remove active class from all tabs
+            const configTabs = document.querySelectorAll('.config-tab');
+            configTabs.forEach(tab => {
+                tab.classList.remove('active', 'border-blue-500', 'text-blue-600');
+                tab.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-config').classList.remove('hidden');
+            
+            // Mark selected tab as active
+            event.target.classList.add('active', 'border-blue-500', 'text-blue-600');
+            event.target.classList.remove('border-transparent', 'text-gray-500');
+        }
+
+        function saveConfig() {
+            // Implement configuration save logic
+            alert('Configuration saved successfully!');
+        }
+    </script>
+</body>
+</html>

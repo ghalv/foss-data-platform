@@ -1,0 +1,41 @@
+foss_data_platform:
+  target: dev
+  outputs:
+    dev:
+      type: trino
+      host: localhost
+      port: 8080
+      user: admin
+      password: admin
+      catalog: memory
+      schema: default
+      threads: 4
+      http_scheme: http
+      auth: basic
+      verify: false
+      
+    prod:
+      type: trino
+      host: localhost
+      port: 8080
+      user: admin
+      password: admin
+      catalog: memory
+      schema: production
+      threads: 8
+      http_scheme: http
+      auth: basic
+      verify: false
+      
+    minio:
+      type: trino
+      host: localhost
+      port: 8080
+      user: admin
+      password: admin
+      catalog: minio
+      schema: default
+      threads: 4
+      http_scheme: http
+      auth: basic
+      verify: false
