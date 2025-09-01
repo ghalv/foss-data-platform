@@ -498,9 +498,8 @@ def run_pipeline():
         import subprocess
         import os
         
-        # Change to dbt project directory - use correct relative path from dashboard
-        project_dir = '../dbt_stavanger_parking'
-        project_dir = os.path.abspath(project_dir)
+        # Change to dbt project directory - use symlink in dashboard directory
+        project_dir = 'dbt_stavanger_parking'
         
         if not os.path.exists(project_dir):
             return jsonify({
@@ -587,9 +586,8 @@ def run_specific_model():
         if not model_name:
             return jsonify({'success': False, 'error': 'Model name is required'}), 400
         
-        # Change to dbt project directory - use correct relative path from dashboard
-        project_dir = '../dbt_stavanger_parking'
-        project_dir = os.path.abspath(project_dir)
+        # Change to dbt project directory - use symlink in dashboard directory
+        project_dir = 'dbt_stavanger_parking'
         
         if not os.path.exists(project_dir):
             return jsonify({
@@ -644,9 +642,8 @@ def run_tests():
         import subprocess
         import os
         
-        # Change to dbt project directory - use correct relative path from dashboard
-        project_dir = '../dbt_stavanger_parking'
-        project_dir = os.path.abspath(project_dir)
+        # Change to dbt project directory - use symlink in dashboard directory
+        project_dir = 'dbt_stavanger_parking'
         
         if not os.path.exists(project_dir):
             return jsonify({
@@ -705,7 +702,7 @@ def get_pipeline_status_detail():
         import os
         import json
         
-        project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        project_dir = 'dbt_stavanger_parking'
         
         # Get dbt project status
         result = subprocess.run(
@@ -738,6 +735,20 @@ def get_pipeline_status_detail():
             'total_models': 0,
             'project_status': 'unknown'
         }), 500
+
+@app.route('/api/debug/paths')
+def debug_paths():
+    """Debug endpoint to check paths"""
+    import os
+    return jsonify({
+        'current_working_directory': os.getcwd(),
+        'flask_file_path': __file__,
+        'flask_dir': os.path.dirname(__file__),
+        'symlink_exists': os.path.exists('dbt_stavanger_parking'),
+        'symlink_islink': os.path.islink('dbt_stavanger_parking'),
+        'symlink_target': os.readlink('dbt_stavanger_parking') if os.path.islink('dbt_stavanger_parking') else None,
+        'absolute_path_exists': os.path.exists('/home/gunnar/git/foss-dataplatform/dbt_stavanger_parking')
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

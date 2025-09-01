@@ -3,7 +3,7 @@ stavanger_parking:
   outputs:
     dev:
       type: trino
-      host: localhost
+      host: trino-coordinator
       port: 8080
       user: trino
       password: ""

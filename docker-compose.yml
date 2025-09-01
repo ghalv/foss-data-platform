@@ -186,6 +186,7 @@ services:
       - "5000:5000"
     volumes:
       - ./dashboard:/app
+      - ./dbt_stavanger_parking:/app/dbt_stavanger_parking
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
