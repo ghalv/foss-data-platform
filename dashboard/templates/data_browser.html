@@ -62,6 +62,14 @@
                     Data Browser
                 </h1>
                 <p class="lead text-muted">Interactive data exploration and SQL query execution</p>
+                
+                <!-- Help Note -->
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Data Browser Guide:</strong> This browser connects to your Trino query engine. 
+                    Use the <strong>memory</strong> catalog to access your Stavanger Parking pipeline data. 
+                    The schema browser shows available tables organized by data layers (raw, staging, intermediate, marts).
+                </div>
             </div>
         </div>
 
@@ -76,6 +84,54 @@
                     </div>
                     <div class="card-body schema-browser">
                         <div id="catalog-tree">
+                            <div class="catalog-item p-2" data-catalog="memory">
+                                <i class="fas fa-database text-info"></i> <strong>memory</strong>
+                                <div class="ms-3 mt-2">
+                                    <div class="catalog-item p-1" data-schema="default_raw_data">
+                                        <i class="fas fa-folder text-warning"></i> default_raw_data
+                                        <div class="ms-3 mt-1">
+                                            <div class="catalog-item p-1" data-table="raw_parking_data">
+                                                <i class="fas fa-table text-success"></i> raw_parking_data
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="catalog-item p-1" data-schema="default_staging">
+                                        <i class="fas fa-folder text-warning"></i> default_staging
+                                        <div class="ms-3 mt-1">
+                                            <div class="catalog-item p-1" data-table="stg_parking_data">
+                                                <i class="fas fa-table text-success"></i> stg_parking_data
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="catalog-item p-1" data-schema="default_intermediate">
+                                        <i class="fas fa-folder text-warning"></i> default_intermediate
+                                        <div class="ms-3 mt-1">
+                                            <div class="catalog-item p-1" data-table="int_parking_metrics">
+                                                <i class="fas fa-table text-success"></i> int_parking_metrics
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="catalog-item p-1" data-schema="default_marts_core">
+                                        <i class="fas fa-folder text-warning"></i> default_marts_core
+                                        <div class="ms-3 mt-1">
+                                            <div class="catalog-item p-1" data-table="fct_parking_utilization">
+                                                <i class="fas fa-table text-success"></i> fct_parking_utilization
+                                            </div>
+                                            <div class="catalog-item p-1" data-table="dim_parking_locations">
+                                                <i class="fas fa-table text-success"></i> dim_parking_locations
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="catalog-item p-1" data-schema="default_marts_marketing">
+                                        <i class="fas fa-folder text-warning"></i> default_marts_marketing
+                                        <div class="ms-3 mt-1">
+                                            <div class="catalog-item p-1" data-table="mart_parking_insights">
+                                                <i class="fas fa-table text-success"></i> mart_parking_insights
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="catalog-item p-2" data-catalog="iceberg">
                                 <i class="fas fa-database text-primary"></i> <strong>iceberg</strong>
                                 <div class="ms-3 mt-2">
@@ -90,19 +146,6 @@
                                             </div>
                                             <div class="catalog-item p-1" data-table="mart_parking_insights">
                                                 <i class="fas fa-table text-success"></i> mart_parking_insights
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="catalog-item p-2" data-catalog="memory">
-                                <i class="fas fa-database text-info"></i> <strong>memory</strong>
-                                <div class="ms-3 mt-2">
-                                    <div class="catalog-item p-1" data-schema="default">
-                                        <i class="fas fa-folder text-warning"></i> default
-                                        <div class="ms-3 mt-1">
-                                            <div class="catalog-item p-1" data-table="raw_parking_data">
-                                                <i class="fas fa-table text-success"></i> raw_parking_data
                                             </div>
                                         </div>
                                     </div>
@@ -123,19 +166,14 @@
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <textarea id="sql-editor" placeholder="Enter your SQL query here...">SELECT 
-    location_name,
-    COUNT(*) as record_count,
-    AVG(utilization_percentage) as avg_utilization
-FROM iceberg.default.fct_parking_utilization f
-JOIN iceberg.default.dim_parking_locations d ON f.location_key = d.location_key
-GROUP BY location_name
-ORDER BY avg_utilization DESC
-LIMIT 10;</textarea>
+                            <textarea id="sql-editor" placeholder="Enter your SQL query here..."></textarea>
                         </div>
                         <div class="d-flex gap-2 mb-3">
                             <button class="btn btn-primary" onclick="executeQuery()">
                                 <i class="fas fa-play"></i> Execute Query
+                            </button>
+                            <button class="btn btn-outline-info" onclick="testConnection()">
+                                <i class="fas fa-plug"></i> Test Connection
                             </button>
                             <button class="btn btn-outline-secondary" onclick="clearQuery()">
                                 <i class="fas fa-eraser"></i> Clear
@@ -183,6 +221,17 @@ LIMIT 10;</textarea>
             indentUnit: 4,
             lineWrapping: true
         });
+
+        // Set default query
+        editor.setValue(`SELECT 
+    location_name,
+    COUNT(*) as record_count,
+    AVG(utilization_percentage) as avg_utilization
+FROM memory.default_marts_core.fct_parking_utilization f
+JOIN memory.default_marts_core.dim_parking_locations d ON f.location_key = d.location_key
+GROUP BY location_name
+ORDER BY avg_utilization DESC
+LIMIT 10`);
 
         // Schema browser interactions
         document.querySelectorAll('.catalog-item').forEach(item => {
@@ -286,6 +335,41 @@ LIMIT 10;</textarea>
             editor.setValue('');
             document.getElementById('query-results').style.display = 'none';
             document.getElementById('query-status').style.display = 'none';
+        }
+
+        function testConnection() {
+            // Show loading state
+            document.getElementById('query-status').style.display = 'block';
+            document.getElementById('status-message').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing connection...';
+            document.getElementById('query-results').style.display = 'none';
+
+            // Test with a simple query
+            const testQuery = "SHOW CATALOGS";
+            
+            fetch('/api/query/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: testQuery })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('status-message').innerHTML = 
+                        `<i class="fas fa-check-circle text-success"></i> Connection successful! Found ${data.row_count} catalogs`;
+                    
+                    // Show the catalogs
+                    displayResults(data.results, data.columns);
+                } else {
+                    document.getElementById('status-message').innerHTML = 
+                        `<i class="fas fa-exclamation-triangle text-warning"></i> Connection test failed: ${data.error}`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('status-message').innerHTML = 
+                    `<i class="fas fa-times-circle text-danger"></i> Connection error: ${error.message}`;
+            });
         }
 
         function exportResults() {

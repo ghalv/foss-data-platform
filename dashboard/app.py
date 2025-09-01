@@ -783,7 +783,7 @@ def execute_query():
             'X-Trino-User': 'trino'
         }
         
-        response = requests.post(trino_url, data=query, headers=headers, timeout=60)
+        response = requests.post(trino_url, data=query, headers=headers, timeout=30)
         
         if response.status_code != 200:
             return jsonify({
@@ -799,56 +799,425 @@ def execute_query():
                 'error': 'No query ID returned from Trino'
             }), 500
         
-        # Poll for results
-        results_url = f"http://trino-coordinator:8080/v1/query/{query_id}"
-        max_attempts = 30
+        # Poll for results with longer timeout for complex queries
+        max_attempts = 200  # Increased significantly for complex queries
+        poll_interval = 0.5  # Increased slightly for better performance
+        
+        print(f"Starting to poll for query {query_id}")
+        
+        # Get the nextUri from the initial response
+        next_uri = response.json().get('nextUri')
+        if not next_uri:
+            return jsonify({
+                'success': False,
+                'error': 'No nextUri in Trino response'
+            }), 500
+        
+        print(f"Using nextUri: {next_uri}")
         
         for attempt in range(max_attempts):
-            time.sleep(1)
-            result_response = requests.get(results_url, headers=headers)
+            time.sleep(poll_interval)
+            print(f"Poll attempt {attempt + 1}/{max_attempts}")
             
-            if result_response.status_code == 200:
-                result_data = result_response.json()
+            try:
+                # Use the nextUri directly
+                result_response = requests.get(next_uri, headers=headers, timeout=10)
+                print(f"Response status: {result_response.status_code}")
+                print(f"Response headers: {dict(result_response.headers)}")
                 
-                if result_data.get('state') == 'FINISHED':
-                    # Extract results
-                    columns = [col['name'] for col in result_data.get('columns', [])]
-                    data_rows = result_data.get('data', [])
+                if result_response.status_code == 200:
+                    result_data = result_response.json()
+                    print(f"Full response data: {json.dumps(result_data, indent=2)}")
+                    current_state = result_data.get('stats', {}).get('state')
+                    print(f"Query state: {current_state}")
+                    print(f"Response keys: {list(result_data.keys())}")
                     
-                    # Convert to list of dicts
-                    results = []
-                    for row in data_rows:
-                        row_dict = {}
-                        for i, col in enumerate(columns):
-                            row_dict[col] = row[i] if i < len(row) else None
-                        results.append(row_dict)
+                    # Update nextUri for next iteration (Trino provides new URI each time)
+                    new_next_uri = result_data.get('nextUri')
+                    if new_next_uri:
+                        next_uri = new_next_uri
+                        print(f"Updated nextUri: {next_uri}")
                     
-                    execution_time = int((time.time() - start_time) * 1000)
+                    if current_state == 'FINISHED':
+                        # Extract results
+                        columns = [col['name'] for col in result_data.get('columns', [])]
+                        data_rows = result_data.get('data', [])
+                        
+                        # Convert to list of dicts
+                        results = []
+                        for row in data_rows:
+                            row_dict = {}
+                            for i, col in enumerate(columns):
+                                row_dict[col] = row[i] if i < len(row) else None
+                            results.append(row_dict)
+                        
+                        execution_time = int((time.time() - start_time) * 1000)
+                        print(f"Query completed successfully in {execution_time}ms")
+                        
+                        return jsonify({
+                            'success': True,
+                            'results': results,
+                            'columns': columns,
+                            'execution_time': execution_time,
+                            'row_count': len(results)
+                        })
                     
-                    return jsonify({
-                        'success': True,
-                        'results': results,
-                        'columns': columns,
-                        'execution_time': execution_time,
-                        'row_count': len(results)
-                    })
-                
-                elif result_data.get('state') == 'FAILED':
-                    error_msg = result_data.get('error', {}).get('message', 'Unknown error')
-                    return jsonify({
-                        'success': False,
-                        'error': f'Query failed: {error_msg}'
-                    }), 500
+                    elif current_state == 'FAILED':
+                        error_msg = result_data.get('error', {}).get('message', 'Unknown error')
+                        print(f"Query failed: {error_msg}")
+                        return jsonify({
+                            'success': False,
+                            'error': f'Query failed: {error_msg}'
+                        }), 500
+                    
+                    elif current_state in ['RUNNING', 'QUEUED']:
+                        # Continue polling
+                        print(f"Query {current_state.lower()}, continuing to poll...")
+                        continue
+                    
+                    # If we get here, the state is something unexpected
+                    print(f"Unexpected query state: {current_state}")
+                    continue
+                    
+                elif result_response.status_code == 410:
+                    # Query is gone, might be completed
+                    print("Query returned 410 Gone, checking if it completed")
+                    # Try to get the final status from the query ID
+                    final_response = requests.get(f"http://trino-coordinator:8080/v1/query/{query_id}", headers=headers, timeout=10)
+                    if final_response.status_code == 200:
+                        final_data = final_response.json()
+                        if final_data.get('state') == 'FINISHED':
+                            # Extract results from final response
+                            columns = [col['name'] for col in final_data.get('columns', [])]
+                            data_rows = final_data.get('data', [])
+                            
+                            results = []
+                            for row in data_rows:
+                                row_dict = {}
+                                for i, col in enumerate(columns):
+                                    row_dict[col] = row[i] if i < len(row) else None
+                                results.append(row_dict)
+                            
+                            execution_time = int((time.time() - start_time) * 1000)
+                            print(f"Query completed successfully in {execution_time}ms")
+                            
+                            return jsonify({
+                                'success': True,
+                                'results': results,
+                                'columns': columns,
+                                'execution_time': execution_time,
+                                'row_count': len(results)
+                            })
+                        else:
+                            print(f"Query state in final response: {final_data.get('state')}")
+                            # If query is not finished, it might have failed
+                            if final_data.get('state') == 'FAILED':
+                                error_msg = final_data.get('error', {}).get('message', 'Unknown error')
+                                return jsonify({
+                                    'success': False,
+                                    'error': f'Query failed: {error_msg}'
+                                }), 500
+                    
+                    # If we can't get results from the final response, the query might be too fast
+                    # Try to get results directly from the nextUri with a different approach
+                    print("Query completed too fast, trying direct result retrieval")
+                    try:
+                        # For fast queries, try to get results immediately
+                        direct_response = requests.get(next_uri, headers=headers, timeout=5)
+                        if direct_response.status_code == 200:
+                            direct_data = direct_response.json()
+                            if direct_data.get('state') == 'FINISHED':
+                                columns = [col['name'] for col in direct_data.get('columns', [])]
+                                data_rows = direct_data.get('data', [])
+                                
+                                results = []
+                                for row in data_rows:
+                                    row_dict = {}
+                                    for i, col in enumerate(columns):
+                                        row_dict[col] = row[i] if i < len(row) else None
+                                    results.append(row_dict)
+                                
+                                execution_time = int((time.time() - start_time) * 1000)
+                                print(f"Query completed successfully in {execution_time}ms")
+                                
+                                return jsonify({
+                                    'success': True,
+                                    'results': results,
+                                    'columns': columns,
+                                    'execution_time': execution_time,
+                                    'row_count': len(results)
+                                })
+                    except Exception as e:
+                        print(f"Direct result retrieval failed: {e}")
+                    
+                    continue
+                    
+                else:
+                    print(f"Unexpected response status: {result_response.status_code}")
+                    print(f"Response text: {result_response.text[:200]}")
+                    
+            except requests.exceptions.Timeout:
+                print(f"Timeout on poll attempt {attempt + 1}")
+                continue
+            except Exception as e:
+                print(f"Error on poll attempt {attempt + 1}: {e}")
+                continue
         
+        # If we get here, the query timed out
+        total_timeout = max_attempts * poll_interval
         return jsonify({
             'success': False,
-            'error': 'Query execution timed out'
+            'error': f'Query execution timed out after {total_timeout:.1f} seconds. This may indicate:\n\n1. The table/catalog does not exist\n2. The query is too complex\n3. Trino service is overloaded\n\nTry:\n- Using the memory catalog instead of iceberg\n- Checking table names in the schema browser\n- Running a simpler query first\n\nNote: Complex queries may take up to {total_timeout:.0f} seconds to complete.'
+        }), 500
+        
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'Request to Trino timed out. Please check if Trino is running and accessible.'
         }), 500
         
     except Exception as e:
         return jsonify({
             'success': False,
             'error': f'Failed to execute query: {str(e)}'
+        }), 500
+
+@app.route('/api/query/test-connection')
+def test_trino_connection():
+    """Simple test endpoint to debug Trino connection"""
+    try:
+        import requests
+        
+        # Test 1: Simple GET request to Trino UI
+        ui_response = requests.get('http://trino-coordinator:8080/ui/', timeout=5)
+        
+        # Test 2: POST request to statement endpoint
+        statement_response = requests.post(
+            'http://trino-coordinator:8080/v1/statement',
+            data='SHOW CATALOGS',
+            headers={'Content-Type': 'application/json', 'X-Trino-User': 'trino'},
+            timeout=10
+        )
+        
+        return jsonify({
+            'success': True,
+            'ui_status': ui_response.status_code,
+            'statement_status': statement_response.status_code,
+            'statement_response': statement_response.text[:500] if statement_response.status_code == 200 else 'N/A'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'error_type': type(e).__name__
+        }), 500
+
+@app.route('/api/query/simple-test')
+def simple_trino_test():
+    """Very simple test to see what Trino returns"""
+    try:
+        import requests
+        
+        # Make a simple request to Trino
+        response = requests.post(
+            'http://trino-coordinator:8080/v1/statement',
+            data='SHOW CATALOGS',
+            headers={'Content-Type': 'application/json', 'X-Trino-User': 'trino'},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            # Get the query ID and immediately check its status
+            query_data = response.json()
+            query_id = query_data.get('id')
+            
+            if query_id:
+                # Wait a moment and check the status
+                import time
+                time.sleep(1)
+                
+                status_response = requests.get(
+                    f'http://trino-coordinator:8080/v1/query/{query_id}',
+                    headers={'X-Trino-User': 'trino'},
+                    timeout=10
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'initial_response': query_data,
+                    'status_response': status_response.json() if status_response.status_code == 200 else {'error': status_response.text},
+                    'status_code': status_response.status_code
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'No query ID in response',
+                    'response': query_data
+                })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Trino returned status {response.status_code}',
+                'response_text': response.text
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'error_type': type(e).__name__
+        }), 500
+
+@app.route('/api/query/debug-test')
+def debug_trino_communication():
+    """Comprehensive test endpoint to debug Trino communication"""
+    try:
+        import requests
+        import json
+        
+        debug_info = {
+            'dashboard_container': 'dashboard',
+            'trino_container': 'trino-coordinator',
+            'test_results': []
+        }
+        
+        # Test 1: Basic connectivity
+        try:
+            ui_response = requests.get('http://trino-coordinator:8080/ui/', timeout=5)
+            debug_info['test_results'].append({
+                'test': 'Basic connectivity to Trino UI',
+                'status': 'SUCCESS' if ui_response.status_code == 200 else 'FAILED',
+                'status_code': ui_response.status_code,
+                'response_size': len(ui_response.text)
+            })
+        except Exception as e:
+            debug_info['test_results'].append({
+                'test': 'Basic connectivity to Trino UI',
+                'status': 'ERROR',
+                'error': str(e)
+            })
+        
+        # Test 2: Submit simple query
+        try:
+            query_response = requests.post(
+                'http://trino-coordinator:8080/v1/statement',
+                data='SELECT 1 as test',
+                headers={'Content-Type': 'application/json', 'X-Trino-User': 'trino'},
+                timeout=10
+            )
+            
+            if query_response.status_code == 200:
+                query_data = query_response.json()
+                query_id = query_data.get('id')
+                next_uri = query_data.get('nextUri')
+                
+                debug_info['test_results'].append({
+                    'test': 'Submit simple query',
+                    'status': 'SUCCESS',
+                    'query_id': query_id,
+                    'next_uri': next_uri,
+                    'initial_state': query_data.get('stats', {}).get('state')
+                })
+                
+                # Test 3: Follow nextUri chain
+                if next_uri:
+                    chain_results = []
+                    current_uri = next_uri
+                    max_chain_length = 5
+                    
+                    for i in range(max_chain_length):
+                        try:
+                            chain_response = requests.get(current_uri, headers={'X-Trino-User': 'trino'}, timeout=5)
+                            if chain_response.status_code == 200:
+                                chain_data = chain_response.json()
+                                current_state = chain_data.get('stats', {}).get('state')
+                                new_next_uri = chain_data.get('nextUri')
+                                
+                                chain_results.append({
+                                    'step': i + 1,
+                                    'uri': current_uri,
+                                    'state': current_state,
+                                    'new_next_uri': new_next_uri
+                                })
+                                
+                                if current_state == 'FINISHED':
+                                    debug_info['test_results'].append({
+                                        'test': 'Follow nextUri chain',
+                                        'status': 'SUCCESS - Query completed',
+                                        'steps': chain_results,
+                                        'final_state': current_state
+                                    })
+                                    break
+                                elif current_state == 'FAILED':
+                                    debug_info['test_results'].append({
+                                        'test': 'Follow nextUri chain',
+                                        'status': 'FAILED - Query failed',
+                                        'steps': chain_results,
+                                        'final_state': current_state
+                                    })
+                                    break
+                                elif new_next_uri:
+                                    current_uri = new_next_uri
+                                else:
+                                    debug_info['test_results'].append({
+                                        'test': 'Follow nextUri chain',
+                                        'status': 'STUCK - No nextUri provided',
+                                        'steps': chain_results,
+                                        'final_state': current_state
+                                    })
+                                    break
+                            else:
+                                chain_results.append({
+                                    'step': i + 1,
+                                    'uri': current_uri,
+                                    'status_code': chain_response.status_code,
+                                    'error': chain_response.text[:200]
+                                })
+                                debug_info['test_results'].append({
+                                    'test': 'Follow nextUri chain',
+                                    'status': f'ERROR - HTTP {chain_response.status_code}',
+                                    'steps': chain_results
+                                })
+                                break
+                        except Exception as e:
+                            chain_results.append({
+                                'step': i + 1,
+                                'uri': current_uri,
+                                'error': str(e)
+                            })
+                            debug_info['test_results'].append({
+                                'test': 'Follow nextUri chain',
+                                'status': f'ERROR - Exception: {str(e)}',
+                                'steps': chain_results
+                            })
+                            break
+                    else:
+                        debug_info['test_results'].append({
+                            'test': 'Follow nextUri chain',
+                            'status': 'TIMEOUT - Max chain length reached',
+                            'steps': chain_results
+                        })
+            else:
+                debug_info['test_results'].append({
+                    'test': 'Submit simple query',
+                    'status': 'FAILED',
+                    'status_code': query_response.status_code,
+                    'error': query_response.text[:200]
+                })
+                
+        except Exception as e:
+            debug_info['test_results'].append({
+                'test': 'Submit simple query',
+                'status': 'ERROR',
+                'error': str(e)
+            })
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        return jsonify({
+            'error': f'Debug test failed: {str(e)}'
         }), 500
 
 if __name__ == '__main__':
