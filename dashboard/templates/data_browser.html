@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Browser - FOSS Data Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+    <style>
+        .CodeMirror {
+            height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 0.375rem;
+        }
+        .query-results {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .table-responsive {
+            border-radius: 0.375rem;
+        }
+        .schema-browser {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .catalog-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .catalog-item:hover {
+            background-color: #f8f9fa;
+        }
+        .catalog-item.active {
+            background-color: #e3f2fd;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-database"></i> FOSS Data Platform
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a class="nav-link" href="/pipeline"><i class="fas fa-project-diagram"></i> Pipeline</a>
+                <a class="nav-link active" href="/data-browser"><i class="fas fa-search"></i> Data Browser</a>
+                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+                <a class="nav-link" href="/metrics"><i class="fas fa-chart-bar"></i> Metrics</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-5">
+                    <i class="fas fa-search text-primary"></i>
+                    Data Browser
+                </h1>
+                <p class="lead text-muted">Interactive data exploration and SQL query execution</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Panel: Schema Browser -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-sitemap"></i> Schema Browser
+                        </h5>
+                    </div>
+                    <div class="card-body schema-browser">
+                        <div id="catalog-tree">
+                            <div class="catalog-item p-2" data-catalog="iceberg">
+                                <i class="fas fa-database text-primary"></i> <strong>iceberg</strong>
+                                <div class="ms-3 mt-2">
+                                    <div class="catalog-item p-1" data-schema="default">
+                                        <i class="fas fa-folder text-warning"></i> default
+                                        <div class="ms-3 mt-1">
+                                            <div class="catalog-item p-1" data-table="fct_parking_utilization">
+                                                <i class="fas fa-table text-success"></i> fct_parking_utilization
+                                            </div>
+                                            <div class="catalog-item p-1" data-table="dim_parking_locations">
+                                                <i class="fas fa-table text-success"></i> dim_parking_locations
+                                            </div>
+                                            <div class="catalog-item p-1" data-table="mart_parking_insights">
+                                                <i class="fas fa-table text-success"></i> mart_parking_insights
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="catalog-item p-2" data-catalog="memory">
+                                <i class="fas fa-database text-info"></i> <strong>memory</strong>
+                                <div class="ms-3 mt-2">
+                                    <div class="catalog-item p-1" data-schema="default">
+                                        <i class="fas fa-folder text-warning"></i> default
+                                        <div class="ms-3 mt-1">
+                                            <div class="catalog-item p-1" data-table="raw_parking_data">
+                                                <i class="fas fa-table text-success"></i> raw_parking_data
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Query Interface -->
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-code"></i> SQL Query Editor
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <textarea id="sql-editor" placeholder="Enter your SQL query here...">SELECT 
+    location_name,
+    COUNT(*) as record_count,
+    AVG(utilization_percentage) as avg_utilization
+FROM iceberg.default.fct_parking_utilization f
+JOIN iceberg.default.dim_parking_locations d ON f.location_key = d.location_key
+GROUP BY location_name
+ORDER BY avg_utilization DESC
+LIMIT 10;</textarea>
+                        </div>
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-primary" onclick="executeQuery()">
+                                <i class="fas fa-play"></i> Execute Query
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="clearQuery()">
+                                <i class="fas fa-eraser"></i> Clear
+                            </button>
+                            <button class="btn btn-outline-success" onclick="exportResults()">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                        </div>
+                        
+                        <!-- Query Results -->
+                        <div id="query-results" style="display: none;">
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-table"></i> Query Results
+                                <span id="result-count" class="badge bg-secondary ms-2"></span>
+                            </h6>
+                            <div class="query-results">
+                                <div id="results-table"></div>
+                            </div>
+                        </div>
+
+                        <!-- Query Status -->
+                        <div id="query-status" class="mt-3" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                <span id="status-message">Query executed successfully</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/sql/sql.min.js"></script>
+    <script>
+        // Initialize CodeMirror
+        let editor = CodeMirror.fromTextArea(document.getElementById('sql-editor'), {
+            mode: 'text/x-sql',
+            theme: 'monokai',
+            lineNumbers: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            indentUnit: 4,
+            lineWrapping: true
+        });
+
+        // Schema browser interactions
+        document.querySelectorAll('.catalog-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                // Remove active class from all items
+                document.querySelectorAll('.catalog-item').forEach(i => i.classList.remove('active'));
+                
+                // Add active class to clicked item
+                this.classList.add('active');
+                
+                // If it's a table, insert it into the query editor
+                const table = this.getAttribute('data-table');
+                if (table) {
+                    const catalog = this.closest('[data-catalog]').getAttribute('data-catalog');
+                    const schema = this.closest('[data-schema]').getAttribute('data-schema');
+                    const tableName = `${catalog}.${schema}.${table}`;
+                    
+                    // Insert table name at cursor position
+                    const cursor = editor.getCursor();
+                    editor.replaceRange(tableName, cursor);
+                    editor.focus();
+                }
+            });
+        });
+
+        function executeQuery() {
+            const query = editor.getValue();
+            if (!query.trim()) {
+                alert('Please enter a SQL query');
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('query-status').style.display = 'block';
+            document.getElementById('status-message').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Executing query...';
+            document.getElementById('query-results').style.display = 'none';
+
+            // Execute query via API
+            fetch('/api/query/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayResults(data.results, data.columns);
+                    document.getElementById('status-message').innerHTML = 
+                        `<i class="fas fa-check-circle text-success"></i> Query executed successfully in ${data.execution_time}ms`;
+                } else {
+                    document.getElementById('status-message').innerHTML = 
+                        `<i class="fas fa-exclamation-triangle text-warning"></i> Query failed: ${data.error}`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('status-message').innerHTML = 
+                    `<i class="fas fa-times-circle text-danger"></i> Error: ${error.message}`;
+            });
+        }
+
+        function displayResults(results, columns) {
+            const resultsDiv = document.getElementById('results-table');
+            const countSpan = document.getElementById('result-count');
+            
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="alert alert-info">No results returned</div>';
+                countSpan.textContent = '0 rows';
+            } else {
+                let tableHtml = '<div class="table-responsive"><table class="table table-striped table-hover">';
+                
+                // Header
+                tableHtml += '<thead><tr>';
+                columns.forEach(col => {
+                    tableHtml += `<th>${col}</th>`;
+                });
+                tableHtml += '</tr></thead>';
+                
+                // Body
+                tableHtml += '<tbody>';
+                results.forEach(row => {
+                    tableHtml += '<tr>';
+                    columns.forEach(col => {
+                        tableHtml += `<td>${row[col] || ''}</td>`;
+                    });
+                    tableHtml += '</tr>';
+                });
+                tableHtml += '</tbody></table></div>';
+                
+                resultsDiv.innerHTML = tableHtml;
+                countSpan.textContent = `${results.length} rows`;
+            }
+            
+            document.getElementById('query-results').style.display = 'block';
+        }
+
+        function clearQuery() {
+            editor.setValue('');
+            document.getElementById('query-results').style.display = 'none';
+            document.getElementById('query-status').style.display = 'none';
+        }
+
+        function exportResults() {
+            const resultsDiv = document.getElementById('results-table');
+            if (resultsDiv.style.display === 'none') {
+                alert('No results to export');
+                return;
+            }
+            
+            // Simple CSV export
+            const table = resultsDiv.querySelector('table');
+            if (table) {
+                const csv = tableToCSV(table);
+                downloadCSV(csv, 'query_results.csv');
+            }
+        }
+
+        function tableToCSV(table) {
+            const rows = table.querySelectorAll('tr');
+            let csv = [];
+            
+            rows.forEach(row => {
+                const cols = row.querySelectorAll('th, td');
+                const rowData = Array.from(cols).map(col => {
+                    let text = col.textContent || col.innerText;
+                    text = text.replace(/"/g, '""');
+                    return `"${text}"`;
+                });
+                csv.push(rowData.join(','));
+            });
+            
+            return csv.join('\n');
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

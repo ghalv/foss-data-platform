@@ -23,65 +23,73 @@ SERVICES = {
         'name': 'JupyterLab',
         'url': 'http://jupyterlab:8888',
         'external_url': 'http://localhost:8888',
-        'description': 'Interactive data analysis and development',
-        'icon': '📊',
-        'category': 'Development'
+        'description': 'Interactive development environment',
+        'status': 'healthy',
+        'category': 'Development',
+        'icon': '🔬'
     },
     'dagster': {
         'name': 'Dagster',
         'url': 'http://dagster:3000',
         'external_url': 'http://localhost:3000',
-        'description': 'Data pipeline orchestration and monitoring',
-        'icon': '🔄',
-        'category': 'Orchestration'
+        'description': 'Data orchestration platform',
+        'status': 'healthy',
+        'category': 'Orchestration',
+        'icon': '🎯'
     },
     'trino': {
         'name': 'Apache Trino',
         'url': 'http://trino-coordinator:8080',
         'external_url': 'http://localhost:8080',
         'description': 'Distributed SQL query engine',
-        'icon': '⚡',
-        'category': 'Query Engine'
+        'status': 'healthy',
+        'category': 'Query Engine',
+        'icon': '🚀'
     },
     'dbt': {
-        'name': 'DBT',
-        'url': 'http://dagster:3000',  # DBT runs through Dagster
+        'name': 'dbt',
+        'url': 'http://dagster:3000',
         'external_url': 'http://localhost:3000',  # DBT runs through Dagster
         'description': 'Data transformation and modeling (via Dagster)',
-        'icon': '🔧',
-        'category': 'Transformation'
+        'status': 'healthy',
+        'category': 'Transformation',
+        'icon': '🔧'
+    },
+    'minio': {
+        'name': 'MinIO',
+        'url': 'http://minio:9000',
+        'external_url': 'http://localhost:9003',  # MinIO Console port
+        'description': 'S3-compatible object storage',
+        'status': 'healthy',
+        'category': 'Storage',
+        'icon': '📦'
     },
     'grafana': {
         'name': 'Grafana',
         'url': 'http://grafana:3000',
         'external_url': 'http://localhost:3001',
-        'description': 'Data visualization and dashboards',
-        'icon': '📈',
-        'category': 'Visualization'
-    },
-    'minio': {
-        'name': 'MinIO Console',
-        'url': 'http://minio:9001',
-        'external_url': 'http://localhost:9003',
-        'description': 'Object storage management',
-        'icon': '🗄️',
-        'category': 'Storage'
+        'description': 'Data visualization and monitoring',
+        'status': 'healthy',
+        'category': 'Visualization',
+        'icon': '📊'
     },
     'prometheus': {
         'name': 'Prometheus',
         'url': 'http://prometheus:9090',
         'external_url': 'http://localhost:9090',
-        'description': 'Metrics collection and alerting',
-        'icon': '📊',
-        'category': 'Monitoring'
+        'description': 'Metrics collection and storage',
+        'status': 'healthy',
+        'category': 'Monitoring',
+        'icon': '📈'
     },
     'portainer': {
         'name': 'Portainer',
         'url': 'http://portainer:9000',
         'external_url': 'http://localhost:9000',
-        'description': 'Container management and monitoring',
-        'icon': '🐳',
-        'category': 'Management'
+        'description': 'Container management interface',
+        'status': 'healthy',
+        'category': 'Management',
+        'icon': '🐳'
     }
 }
 
@@ -744,6 +752,103 @@ def get_pipeline_status_detail():
             'models': [],
             'total_models': 0,
             'project_status': 'unknown'
+        }), 500
+
+@app.route('/data-browser')
+def data_browser():
+    """Data browser page for interactive data exploration"""
+    return render_template('data_browser.html')
+
+@app.route('/api/query/execute', methods=['POST'])
+def execute_query():
+    """Execute SQL query via Trino"""
+    try:
+        import requests
+        import json
+        import time
+        
+        data = request.get_json()
+        query = data.get('query')
+        
+        if not query:
+            return jsonify({'success': False, 'error': 'No query provided'}), 400
+        
+        # Trino query execution
+        start_time = time.time()
+        
+        # Execute query via Trino HTTP API
+        trino_url = "http://trino-coordinator:8080/v1/statement"
+        headers = {
+            'Content-Type': 'application/json',
+            'X-Trino-User': 'trino'
+        }
+        
+        response = requests.post(trino_url, data=query, headers=headers, timeout=60)
+        
+        if response.status_code != 200:
+            return jsonify({
+                'success': False, 
+                'error': f'Trino API error: {response.status_code}'
+            }), 500
+        
+        # Get query results
+        query_id = response.json().get('id')
+        if not query_id:
+            return jsonify({
+                'success': False, 
+                'error': 'No query ID returned from Trino'
+            }), 500
+        
+        # Poll for results
+        results_url = f"http://trino-coordinator:8080/v1/query/{query_id}"
+        max_attempts = 30
+        
+        for attempt in range(max_attempts):
+            time.sleep(1)
+            result_response = requests.get(results_url, headers=headers)
+            
+            if result_response.status_code == 200:
+                result_data = result_response.json()
+                
+                if result_data.get('state') == 'FINISHED':
+                    # Extract results
+                    columns = [col['name'] for col in result_data.get('columns', [])]
+                    data_rows = result_data.get('data', [])
+                    
+                    # Convert to list of dicts
+                    results = []
+                    for row in data_rows:
+                        row_dict = {}
+                        for i, col in enumerate(columns):
+                            row_dict[col] = row[i] if i < len(row) else None
+                        results.append(row_dict)
+                    
+                    execution_time = int((time.time() - start_time) * 1000)
+                    
+                    return jsonify({
+                        'success': True,
+                        'results': results,
+                        'columns': columns,
+                        'execution_time': execution_time,
+                        'row_count': len(results)
+                    })
+                
+                elif result_data.get('state') == 'FAILED':
+                    error_msg = result_data.get('error', {}).get('message', 'Unknown error')
+                    return jsonify({
+                        'success': False,
+                        'error': f'Query failed: {error_msg}'
+                    }), 500
+        
+        return jsonify({
+            'success': False,
+            'error': 'Query execution timed out'
+        }), 500
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to execute query: {str(e)}'
         }), 500
 
 if __name__ == '__main__':

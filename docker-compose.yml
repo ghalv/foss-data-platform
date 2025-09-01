@@ -167,6 +167,28 @@ services:
       retries: 3
       start_period: 40s
 
+  # Hive Metastore for Iceberg metadata
+  hive-metastore:
+    image: apache/hive:3.1.3
+    container_name: hive-metastore
+    environment:
+      - SERVICE_NAME=metastore
+      - DB_DRIVER=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=metastore
+      - DB_USER=metastore
+      - DB_PASS=metastore123
+    volumes:
+      - ./data/hive:/opt/hive/data
+      - ./config/hive:/opt/hive/conf
+    networks:
+      - data-platform
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # Redis for caching
   redis:
     image: redis:7-alpine
