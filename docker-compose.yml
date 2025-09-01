@@ -64,8 +64,6 @@ services:
     environment:
       - COORDINATOR=true
       - DISCOVERY_URI=http://trino-coordinator:8080
-      - TRINO_USER=admin
-      - TRINO_PASSWORD=admin123
     volumes:
       - ./config/trino:/etc/trino
       - ./data:/data
