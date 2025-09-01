@@ -13,6 +13,7 @@ services:
       - JUPYTER_CONFIG_DIR=/home/jovyan/.jupyter
     volumes:
       - ./notebooks:/home/jovyan/work
+      - ./dbt_stavanger_parking:/home/jovyan/pipeline
       - ./data:/home/jovyan/data
       - ./config/jupyter:/home/jovyan/.jupyter
     working_dir: /home/jovyan/work
