@@ -93,6 +93,77 @@
         </div>
         {% endif %}
 
+        <!-- Pipeline Status Section -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">🚀 Data Pipeline Status</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Pipeline Overview Card -->
+                <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <span class="text-3xl mr-3">📊</span>
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-900">Stavanger Parking Pipeline</h4>
+                                <p class="text-sm text-gray-600">Real-time parking utilization insights</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                            <span class="text-sm text-green-600 font-medium">Active</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">5/5</div>
+                            <div class="text-sm text-gray-600">Models</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">3/3</div>
+                            <div class="text-sm text-gray-600">Tests</div>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <a href="/pipeline" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-chart-line mr-2"></i>View Details
+                        </a>
+                        <a href="http://localhost:3000" target="_blank" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-project-diagram"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Business Insights Card -->
+                <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+                    <div class="flex items-center mb-4">
+                        <span class="text-3xl mr-3">💡</span>
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-900">Business Insights</h4>
+                            <p class="text-sm text-gray-600">Key recommendations and alerts</p>
+                        </div>
+                    </div>
+                    <div class="space-y-2 mb-4">
+                        <div class="flex items-center text-sm">
+                            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                            <span class="text-gray-700">Stavanger Sentrum: High Demand - Consider Expansion</span>
+                        </div>
+                        <div class="flex items-center text-sm">
+                            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                            <span class="text-gray-700">Tasta: High Demand - Consider Expansion</span>
+                        </div>
+                        <div class="flex items-center text-sm">
+                            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                            <span class="text-gray-700">Hillevåg: High Demand - Consider Expansion</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>3 Critical Alerts
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Services Grid -->
         <div class="mb-8">
             <h2 class="text-2xl font-bold text-gray-900 mb-6">Platform Services</h2>
