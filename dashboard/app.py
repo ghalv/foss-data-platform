@@ -551,13 +551,23 @@ def run_pipeline():
                     'error': f'Command failed: {str(e)}'
                 })
         
-        # Check if all commands succeeded
-        all_success = all(r['success'] for r in results)
+        # Check if core pipeline (seed + run) succeeded
+        # Tests can fail during development without marking the pipeline as failed
+        core_pipeline_success = results[0]['success'] and results[1]['success']  # seed and run
+        tests_success = results[2]['success'] if len(results) > 2 else True
+        
+        pipeline_status = 'success' if core_pipeline_success else 'failed'
+        message = 'Pipeline executed successfully' if core_pipeline_success else 'Pipeline execution failed'
+        
+        if core_pipeline_success and not tests_success:
+            message = 'Pipeline executed successfully (tests failed - check data quality)'
         
         return jsonify({
-            'success': all_success,
+            'success': core_pipeline_success,
             'results': results,
-            'message': 'Pipeline executed successfully' if all_success else 'Pipeline execution failed'
+            'message': message,
+            'pipeline_status': pipeline_status,
+            'tests_passed': tests_success
         })
         
     except Exception as e:
@@ -735,20 +745,6 @@ def get_pipeline_status_detail():
             'total_models': 0,
             'project_status': 'unknown'
         }), 500
-
-@app.route('/api/debug/paths')
-def debug_paths():
-    """Debug endpoint to check paths"""
-    import os
-    return jsonify({
-        'current_working_directory': os.getcwd(),
-        'flask_file_path': __file__,
-        'flask_dir': os.path.dirname(__file__),
-        'symlink_exists': os.path.exists('dbt_stavanger_parking'),
-        'symlink_islink': os.path.islink('dbt_stavanger_parking'),
-        'symlink_target': os.readlink('dbt_stavanger_parking') if os.path.islink('dbt_stavanger_parking') else None,
-        'absolute_path_exists': os.path.exists('/home/gunnar/git/foss-dataplatform/dbt_stavanger_parking')
-    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
