@@ -703,26 +703,34 @@
             resultAlert.className = `alert ${success ? 'alert-success' : 'alert-danger'}`;
             resultTitle.textContent = message;
             
-            // Format details
+            // Format details - handle undefined details gracefully
             let detailsHtml = '';
-            if (Array.isArray(details)) {
+            if (details && Array.isArray(details)) {
                 details.forEach((detail, index) => {
                     detailsHtml += `<div class="mb-2"><strong>Step ${index + 1}:</strong> `;
-                    if (detail.command) {
+                    if (detail && detail.command) {
                         detailsHtml += `<code>${detail.command}</code><br>`;
                     }
-                    if (detail.success) {
-                        detailsHtml += `<span class="text-success">✓ Success</span>`;
+                    if (detail && detail.success !== undefined) {
+                        if (detail.success) {
+                            detailsHtml += `<span class="text-success">✓ Success</span>`;
+                        } else {
+                            detailsHtml += `<span class="text-danger">✗ Failed</span>`;
+                        }
                     } else {
-                        detailsHtml += `<span class="text-danger">✗ Failed</span>`;
+                        detailsHtml += `<span class="text-muted">Status unknown</span>`;
                     }
-                    if (detail.error) {
+                    if (detail && detail.error) {
                         detailsHtml += `<br><small class="text-muted">${detail.error}</small>`;
                     }
                     detailsHtml += '</div>';
                 });
-            } else if (details.output) {
+            } else if (details && details.output) {
                 detailsHtml = `<pre class="mt-2"><code>${details.output}</code></pre>`;
+            } else if (details && details.error) {
+                detailsHtml = `<div class="alert alert-danger"><strong>Error:</strong> ${details.error}</div>`;
+            } else {
+                detailsHtml = `<div class="text-muted">No detailed information available</div>`;
             }
             
             resultDetails.innerHTML = detailsHtml;
@@ -736,7 +744,7 @@
             const utilizationChart = new Chart(utilizationCtx, {
                 type: 'line',
                 data: {
-                    labels: ['6 AM', '9 AM', '12 PM', '3 PM', '6 PM', '9 PM', '12 AM'],
+                    labels: ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '00:00'],
                     datasets: [{
                         label: 'Average Utilization (%)',
                         data: [45, 85, 65, 70, 90, 60, 35],

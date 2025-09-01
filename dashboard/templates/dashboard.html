@@ -4,196 +4,244 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FOSS Data Platform Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .service-card { transition: all 0.3s ease; }
-        .service-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .status-healthy { background-color: #10B981; }
-        .status-warning { background-color: #F59E0B; }
-        .status-down { background-color: #EF4444; }
-        .metric-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .metric-card-alt { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .service-card {
+            transition: transform 0.2s;
+        }
+        .service-card:hover {
+            transform: translateY(-2px);
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-healthy { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-error { background-color: #dc3545; }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .pipeline-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .insight-card {
+            border-left: 4px solid #007bff;
+        }
+        .alert-card {
+            border-left: 4px solid #ffc107;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .card-header {
+            border-bottom: none;
+            font-weight: 600;
+        }
+        .btn {
+            font-weight: 500;
+            border-radius: 0.5rem;
+        }
+        .display-5 {
+            color: #2c3e50;
+        }
+        .lead {
+            color: #6c757d;
+        }
+        .border-left-primary {
+            border-left: 4px solid #007bff !important;
+        }
+        .border-left-success {
+            border-left: 4px solid #28a745 !important;
+        }
+        .border-left-warning {
+            border-left: 4px solid #ffc107 !important;
+        }
+        .border-left-info {
+            border-left: 4px solid #17a2b8 !important;
+        }
+        .border-left-danger {
+            border-left: 4px solid #dc3545 !important;
+        }
     </style>
 </head>
-<body class="bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white shadow-sm border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-6">
-                <div class="flex items-center">
-                    <h1 class="text-3xl font-bold text-gray-900">
-                        🚀 FOSS Data Platform
-                    </h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-500">Last updated: {{ timestamp }}</span>
-                    <button onclick="refreshDashboard()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
-                        <i class="fas fa-sync-alt mr-2"></i>Refresh
-                    </button>
-                </div>
+<body class="bg-light">
+    <!-- Navigation Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-database"></i> FOSS Data Platform
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link active" href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a class="nav-link" href="/pipeline"><i class="fas fa-project-diagram"></i> Pipeline</a>
+                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+                <a class="nav-link" href="/metrics"><i class="fas fa-chart-bar"></i> Metrics</a>
             </div>
         </div>
-    </header>
+    </nav>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- System Metrics -->
-        {% if system_metrics %}
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="metric-card rounded-lg p-6 text-white">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-white bg-opacity-20">
-                        <i class="fas fa-microchip text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm opacity-90">CPU Usage</p>
-                        <p class="text-2xl font-bold">{{ system_metrics.cpu }}%</p>
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-5">
+                    <i class="fas fa-tachometer-alt text-primary"></i>
+                    Platform Dashboard
+                </h1>
+                <p class="lead">Real-time monitoring and management of your FOSS data platform services</p>
+            </div>
+        </div>
+
+        <!-- Platform Overview -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <h3 class="mb-2">{{ services.values() | selectattr('status', 'equalto', 'healthy') | list | length }}/{{ services|length }}</h3>
+                        <p class="mb-0">Services Healthy</p>
                     </div>
                 </div>
             </div>
-            
-            <div class="metric-card-alt rounded-lg p-6 text-white">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-white bg-opacity-20">
-                        <i class="fas fa-memory text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm opacity-90">Memory Usage</p>
-                        <p class="text-2xl font-bold">{{ system_metrics.memory.percent }}%</p>
-                        <p class="text-sm opacity-90">{{ system_metrics.memory.used }}/{{ system_metrics.memory.total }} GB</p>
+            <div class="col-md-4">
+                <div class="card pipeline-card">
+                    <div class="card-body text-center">
+                        <h3 class="mb-2">5/5</h3>
+                        <p class="mb-0">Pipeline Models</p>
                     </div>
                 </div>
             </div>
-            
-            <div class="bg-gradient-to-r from-green-400 to-blue-500 rounded-lg p-6 text-white">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-white bg-opacity-20">
-                        <i class="fas fa-hdd text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm opacity-90">Disk Usage</p>
-                        <p class="text-2xl font-bold">{{ system_metrics.disk.percent }}%</p>
-                        <p class="text-sm opacity-90">{{ system_metrics.disk.used }}/{{ system_metrics.disk.total }} GB</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg p-6 text-white">
-                <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-white bg-opacity-20">
-                        <i class="fas fa-docker text-2xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm opacity-90">Services</p>
-                        <p class="text-2xl font-bold">{{ services.values() | selectattr('status', 'equalto', 'healthy') | list | length }}/{{ services|length }}</p>
-                        <p class="text-sm opacity-90">Healthy/Total</p>
+            <div class="col-md-4">
+                <div class="card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                    <div class="card-body text-center">
+                        <h3 class="mb-2">1000+</h3>
+                        <p class="mb-0">Data Records</p>
                     </div>
                 </div>
             </div>
         </div>
-        {% endif %}
 
         <!-- Pipeline Status Section -->
-        <div class="mb-8">
-            <h2 class="text-2xl font-bold text-gray-900 mb-6">🚀 Data Pipeline Status</h2>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Pipeline Overview Card -->
-                <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center">
-                            <span class="text-3xl mr-3">📊</span>
-                            <div>
-                                <h4 class="text-lg font-semibold text-gray-900">Stavanger Parking Pipeline</h4>
-                                <p class="text-sm text-gray-600">Real-time parking utilization insights</p>
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="h2 mb-4">🚀 Data Pipeline Status</h2>
+                <div class="row">
+                    <!-- Pipeline Overview Card -->
+                    <div class="col-lg-6 mb-3">
+                        <div class="card h-100 border-left-primary">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <span class="h3 me-3">📊</span>
+                                        <div>
+                                            <h4 class="h5 mb-1">Stavanger Parking Pipeline</h4>
+                                            <p class="text-muted small mb-0">Real-time parking utilization insights</p>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-success">Active</span>
+                                    </div>
+                                </div>
+                                <div class="row text-center mb-3">
+                                    <div class="col-6">
+                                        <h4 class="text-primary">5/5</h4>
+                                        <small class="text-muted">Models</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <h4 class="text-success">3/3</h4>
+                                        <small class="text-muted">Tests</small>
+                                    </div>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <a href="/pipeline" class="btn btn-primary">
+                                        <i class="fas fa-chart-line me-2"></i>View Details
+                                    </a>
+                                    <a href="http://localhost:3000" target="_blank" class="btn btn-outline-secondary">
+                                        <i class="fas fa-project-diagram"></i>
+                                    </a>
+                                </div>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="w-3 h-3 rounded-full bg-green-500"></span>
-                            <span class="text-sm text-green-600 font-medium">Active</span>
-                        </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-blue-600">5/5</div>
-                            <div class="text-sm text-gray-600">Models</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-2xl font-bold text-green-600">3/3</div>
-                            <div class="text-sm text-gray-600">Tests</div>
-                        </div>
-                    </div>
-                    <div class="flex space-x-2">
-                        <a href="/pipeline" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center py-2 px-4 rounded-lg transition-colors">
-                            <i class="fas fa-chart-line mr-2"></i>View Details
-                        </a>
-                        <a href="http://localhost:3000" target="_blank" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg transition-colors">
-                            <i class="fas fa-project-diagram"></i>
-                        </a>
-                    </div>
-                </div>
 
-                <!-- Business Insights Card -->
-                <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
-                    <div class="flex items-center mb-4">
-                        <span class="text-3xl mr-3">💡</span>
-                        <div>
-                            <h4 class="text-lg font-semibold text-gray-900">Business Insights</h4>
-                            <p class="text-sm text-gray-600">Key recommendations and alerts</p>
+                    <!-- Business Insights Card -->
+                    <div class="col-lg-6 mb-3">
+                        <div class="card h-100 border-left-warning">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="h3 me-3">💡</span>
+                                    <div>
+                                        <h4 class="h5 mb-1">Business Insights</h4>
+                                        <p class="text-muted small mb-0">Key recommendations and alerts</p>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="badge bg-warning me-2"></span>
+                                        <small class="text-muted">Stavanger Sentrum: High Demand - Consider Expansion</small>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="badge bg-warning me-2"></span>
+                                        <small class="text-muted">Tasta: High Demand - Consider Expansion</small>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="badge bg-warning me-2"></span>
+                                        <small class="text-muted">Hillevåg: High Demand - Consider Expansion</small>
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>3 Critical Alerts
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="space-y-2 mb-4">
-                        <div class="flex items-center text-sm">
-                            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                            <span class="text-gray-700">Stavanger Sentrum: High Demand - Consider Expansion</span>
-                        </div>
-                        <div class="flex items-center text-sm">
-                            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                            <span class="text-gray-700">Tasta: High Demand - Consider Expansion</span>
-                        </div>
-                        <div class="flex items-center text-sm">
-                            <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                            <span class="text-gray-700">Hillevåg: High Demand - Consider Expansion</span>
-                        </div>
-                    </div>
-                    <div class="text-center">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                            <i class="fas fa-exclamation-triangle mr-2"></i>3 Critical Alerts
-                        </span>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Services Grid -->
-        <div class="mb-8">
-            <h2 class="text-2xl font-bold text-gray-900 mb-6">Platform Services</h2>
+        <div class="mb-4">
+            <h2 class="h2 mb-4">Platform Services</h2>
             
             <!-- Development Services -->
-            <div class="mb-8">
-                <h3 class="text-lg font-semibold text-gray-700 mb-4">🛠️ Development & Analysis</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="mb-4">
+                <h3 class="h5 text-muted mb-3">🛠️ Development & Analysis</h3>
+                <div class="row">
                     {% for service_id, service in services.items() %}
                         {% if service.category == 'Development' %}
-                        <div class="service-card bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center">
-                                    <span class="text-3xl mr-3">{{ service.icon }}</span>
-                                    <div>
-                                        <h4 class="text-lg font-semibold text-gray-900">{{ service.name }}</h4>
-                                        <p class="text-sm text-gray-600">{{ service.description }}</p>
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 service-card border-left-primary">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <span class="h3 me-3">{{ service.icon }}</span>
+                                            <div>
+                                                <h4 class="h6 mb-1">{{ service.name }}</h4>
+                                                <p class="text-muted small mb-0">{{ service.description }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="status-indicator status-{{ service.status }}"></span>
+                                        </div>
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ service.external_url }}" target="_blank" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-external-link-alt me-2"></i>Open
+                                        </a>
+                                        <a href="/service/{{ service_id }}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="fas fa-arrow-right"></i>
+                                        </a>
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="w-3 h-3 rounded-full status-{{ service.status }}"></span>
-                                </div>
-                            </div>
-                            <div class="flex space-x-2">
-                                <a href="{{ service.external_url }}" target="_blank" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center py-2 px-4 rounded-lg transition-colors">
-                                    <i class="fas fa-external-link-alt mr-2"></i>Open
-                                </a>
-                                <a href="/service/{{ service_id }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg transition-colors">
-                                    <i class="fas fa-arrow-right"></i>
-                                </a>
                             </div>
                         </div>
                         {% endif %}
@@ -202,31 +250,35 @@
             </div>
 
             <!-- Data Processing Services -->
-            <div class="mb-8">
-                <h3 class="text-lg font-semibold text-gray-700 mb-4">⚡ Data Processing</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="mb-4">
+                <h3 class="h5 text-muted mb-3">⚡ Data Processing</h3>
+                <div class="row">
                     {% for service_id, service in services.items() %}
                         {% if service.category in ['Orchestration', 'Query Engine', 'Transformation'] %}
-                        <div class="service-card bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center">
-                                    <span class="text-3xl mr-3">{{ service.icon }}</span>
-                                    <div>
-                                        <h4 class="text-lg font-semibold text-gray-900">{{ service.name }}</h4>
-                                        <p class="text-sm text-gray-600">{{ service.description }}</p>
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 service-card border-left-success">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <span class="h3 me-3">{{ service.icon }}</span>
+                                            <div>
+                                                <h4 class="h6 mb-1">{{ service.name }}</h4>
+                                                <p class="text-muted small mb-0">{{ service.description }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="status-indicator status-{{ service.status }}"></span>
+                                        </div>
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ service.external_url }}" target="_blank" class="btn btn-success btn-sm">
+                                            <i class="fas fa-external-link-alt me-2"></i>Open
+                                        </a>
+                                        <a href="/service/{{ service_id }}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="fas fa-arrow-right"></i>
+                                        </a>
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="w-3 h-3 rounded-full status-{{ service.status }}"></span>
-                                </div>
-                            </div>
-                            <div class="flex space-x-2">
-                                <a href="{{ service.external_url }}" target="_blank" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-center py-2 px-4 rounded-lg transition-colors">
-                                    <i class="fas fa-external-link-alt mr-2"></i>Open
-                                </a>
-                                <a href="/service/{{ service_id }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg transition-colors">
-                                    <i class="fas fa-arrow-right"></i>
-                                </a>
                             </div>
                         </div>
                         {% endif %}
@@ -235,64 +287,35 @@
             </div>
 
             <!-- Storage & Monitoring Services -->
-            <div class="mb-8">
-                <h3 class="text-lg font-semibold text-gray-700 mb-4">📊 Storage & Monitoring</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="mb-4">
+                <h3 class="h5 text-muted mb-3">📊 Storage & Monitoring</h3>
+                <div class="row">
                     {% for service_id, service in services.items() %}
                         {% if service.category in ['Storage', 'Visualization', 'Monitoring'] %}
-                        <div class="service-card bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center">
-                                    <span class="text-3xl mr-3">{{ service.icon }}</span>
-                                    <div>
-                                        <h4 class="text-lg font-semibold text-gray-900">{{ service.name }}</h4>
-                                        <p class="text-sm text-gray-600">{{ service.description }}</p>
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 service-card border-left-info">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <span class="h3 me-3">{{ service.icon }}</span>
+                                            <div>
+                                                <h4 class="h6 mb-1">{{ service.name }}</h4>
+                                                <p class="text-muted small mb-0">{{ service.description }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="status-indicator status-{{ service.status }}"></span>
+                                        </div>
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ service.external_url }}" target="_blank" class="btn btn-info btn-sm">
+                                            <i class="fas fa-external-link-alt me-2"></i>Open
+                                        </a>
+                                        <a href="/service/{{ service_id }}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="fas fa-arrow-right"></i>
+                                        </a>
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="w-3 h-3 rounded-full status-{{ service.status }}"></span>
-                                </div>
-                            </div>
-                            <div class="flex space-x-2">
-                                <a href="{{ service.external_url }}" target="_blank" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-center py-2 px-4 rounded-lg transition-colors">
-                                    <i class="fas fa-external-link-alt mr-2"></i>Open
-                                </a>
-                                <a href="/service/{{ service_id }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg transition-colors">
-                                    <i class="fas fa-arrow-right"></i>
-                                </a>
-                            </div>
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Management Services -->
-            <div class="mb-8">
-                <h3 class="text-lg font-semibold text-gray-700 mb-4">⚙️ Management & Operations</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {% for service_id, service in services.items() %}
-                        {% if service.category == 'Management' %}
-                        <div class="service-card bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-500">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center">
-                                    <span class="text-3xl mr-3">{{ service.icon }}</span>
-                                    <div>
-                                        <h4 class="text-lg font-semibold text-gray-900">{{ service.name }}</h4>
-                                        <p class="text-sm text-gray-600">{{ service.description }}</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="w-3 h-3 rounded-full status-{{ service.status }}"></span>
-                                </div>
-                            </div>
-                            <div class="flex space-x-2">
-                                <a href="{{ service.external_url }}" target="_blank" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white text-center py-2 px-4 rounded-lg transition-colors">
-                                    <i class="fas fa-external-link-alt mr-2"></i>Open
-                                </a>
-                                <a href="/service/{{ service_id }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg transition-colors">
-                                    <i class="fas fa-arrow-right"></i>
-                                </a>
                             </div>
                         </div>
                         {% endif %}
@@ -302,56 +325,76 @@
         </div>
 
         <!-- Quick Actions -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">🚀 Quick Actions</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <a href="/logs" class="bg-blue-100 hover:bg-blue-200 text-blue-800 p-4 rounded-lg text-center transition-colors">
-                    <i class="fas fa-file-alt text-2xl mb-2"></i>
-                    <p class="font-medium">View Logs</p>
-                </a>
-                <a href="/config" class="bg-green-100 hover:bg-green-200 text-green-800 p-4 rounded-lg text-center transition-colors">
-                    <i class="fas fa-cog text-2xl mb-2"></i>
-                    <p class="font-medium">Configuration</p>
-                </a>
-                <a href="/health" class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 p-4 rounded-lg text-center transition-colors">
-                    <i class="fas fa-heartbeat text-2xl mb-2"></i>
-                    <p class="font-medium">Health Check</p>
-                </a>
-                <a href="/metrics" class="bg-purple-100 hover:bg-purple-200 text-purple-800 p-4 rounded-lg text-center transition-colors">
-                    <i class="fas fa-chart-line text-2xl mb-2"></i>
-                    <p class="font-medium">System Metrics</p>
-                </a>
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tools"></i> Quick Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <a href="/pipeline" class="btn btn-outline-primary w-100 mb-2">
+                                    <i class="fas fa-project-diagram"></i> Pipeline Status
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="http://localhost:3000" target="_blank" class="btn btn-outline-success w-100 mb-2">
+                                    <i class="fas fa-project-diagram"></i> Dagster
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="http://localhost:8888" target="_blank" class="btn btn-outline-info w-100 mb-2">
+                                    <i class="fas fa-code"></i> JupyterLab
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="http://localhost:9000" target="_blank" class="btn btn-outline-warning w-100 mb-2">
+                                    <i class="fas fa-ship"></i> Portainer
+                                </a>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-3">
+                                <a href="http://localhost:3001" target="_blank" class="btn btn-outline-secondary w-100 mb-2">
+                                    <i class="fas fa-chart-area"></i> Grafana
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="http://localhost:8080" target="_blank" class="btn btn-outline-dark w-100 mb-2">
+                                    <i class="fas fa-database"></i> Trino
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="http://localhost:9001" target="_blank" class="btn btn-outline-info w-100 mb-2">
+                                    <i class="fas fa-cloud"></i> MinIO
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="/health" class="btn btn-outline-danger w-100 mb-2">
+                                    <i class="fas fa-heartbeat"></i> Health Check
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="row">
+            <div class="col-12 text-center text-muted">
+                <small>
+                    <i class="fas fa-code"></i> Built with modern data engineering best practices<br>
+                    FOSS Data Platform - Enterprise-grade open source solution
+                </small>
             </div>
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200 mt-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div class="text-center text-gray-500">
-                <p>FOSS Data Platform Dashboard - Built with ❤️ and open source</p>
-                <p class="text-sm mt-2">Powered by Flask, Tailwind CSS, and Font Awesome</p>
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        function refreshDashboard() {
-            location.reload();
-        }
-
-        // Auto-refresh every 30 seconds
-        setInterval(function() {
-            // Only refresh if the page is visible
-            if (!document.hidden) {
-                fetch('/api/health')
-                    .then(response => response.json())
-                    .then(data => {
-                        // Update status indicators if needed
-                        console.log('Health check updated:', data);
-                    });
-            }
-        }, 30000);
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+

@@ -227,7 +227,7 @@ def get_pipeline_status():
         
         return {
             'status': 'running',
-            'last_run': '2024-09-01 14:40:00',
+            'last_run': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  # 24-hour format
             'models_count': results.get('models_count', 5),
             'tests_passed': 3,  # We'll enhance this later
             'data_quality': 'good',
@@ -287,7 +287,7 @@ def get_pipeline_metrics():
                         'total_records': row[0],
                         'locations_monitored': row[1],
                         'utilization_threshold': f"{row[2]}%",
-                        'peak_hours': '8-9 AM, 5-6 PM',
+                        'peak_hours': '08:00-09:00, 17:00-18:00',
                         'data_freshness': '1 hour',
                         'pipeline_health': 'excellent',
                         'max_utilization': f"{row[3]}%",
@@ -302,7 +302,7 @@ def get_pipeline_metrics():
             'total_records': 1000,
             'locations_monitored': 8,
             'utilization_threshold': '75%',
-            'peak_hours': '8-9 AM, 5-6 PM',
+            'peak_hours': '08:00-09:00, 17:00-18:00',
             'data_freshness': '1 hour',
             'pipeline_health': 'excellent',
             'max_utilization': '95%',
@@ -340,11 +340,12 @@ def dashboard():
     # Get Docker status
     docker_status = get_docker_status()
     
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 24-hour format
     return render_template('dashboard.html',
                          services=service_status,
                          system_metrics=system_metrics,
                          docker_status=docker_status,
-                         timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                         timestamp=timestamp)
 
 @app.route('/api/health')
 def api_health():
@@ -373,7 +374,8 @@ def health_page():
             'url': service_info['url']
         }
     
-    return render_template('health.html', services=health_status, timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 24-hour format
+    return render_template('health.html', services=health_status, timestamp=timestamp)
 
 @app.route('/api/metrics')
 def api_metrics():
@@ -387,13 +389,28 @@ def api_metrics():
 @app.route('/metrics')
 def metrics_page():
     """Human-readable metrics page"""
+    # Get service status like the health route does
+    services = {}
+    for service_id, service_info in SERVICES.items():
+        services[service_id] = {
+            'name': service_info['name'],
+            'status': check_service_health(service_id, service_info),
+            'url': service_info['url'],
+            'description': service_info['description'],
+            'icon': service_info['icon'],
+            'category': service_info['category'],
+            'external_url': service_info['external_url']
+        }
+    
     system_metrics = get_system_metrics()
     docker_status = get_docker_status()
     
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 24-hour format
     return render_template('metrics.html', 
+                         services=services,
                          system_metrics=system_metrics,
                          docker_status=docker_status,
-                         timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                         timestamp=timestamp)
 
 @app.route('/service/<service_id>')
 def service_redirect(service_id):
@@ -481,8 +498,21 @@ def run_pipeline():
         import subprocess
         import os
         
-        # Change to dbt project directory
-        project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        # Change to dbt project directory - use correct relative path from dashboard
+        project_dir = '../dbt_stavanger_parking'
+        project_dir = os.path.abspath(project_dir)
+        
+        if not os.path.exists(project_dir):
+            return jsonify({
+                'success': False,
+                'results': [{
+                    'command': 'Pipeline execution',
+                    'success': False,
+                    'output': '',
+                    'error': f'Project directory not found: {project_dir}'
+                }],
+                'message': 'Project directory not found'
+            }), 400
         
         # Run dbt commands
         commands = [
@@ -504,8 +534,8 @@ def run_pipeline():
                 results.append({
                     'command': ' '.join(cmd),
                     'success': result.returncode == 0,
-                    'output': result.stdout,
-                    'error': result.stderr
+                    'output': result.stdout if result.stdout else '',
+                    'error': result.stderr if result.stderr else ''
                 })
             except subprocess.TimeoutExpired:
                 results.append({
@@ -513,6 +543,13 @@ def run_pipeline():
                     'success': False,
                     'output': '',
                     'error': 'Command timed out after 5 minutes'
+                })
+            except Exception as e:
+                results.append({
+                    'command': ' '.join(cmd),
+                    'success': False,
+                    'output': '',
+                    'error': f'Command failed: {str(e)}'
                 })
         
         # Check if all commands succeeded
@@ -527,7 +564,12 @@ def run_pipeline():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e),
+            'results': [{
+                'command': 'Pipeline execution',
+                'success': False,
+                'output': '',
+                'error': f'Failed to execute pipeline: {str(e)}'
+            }],
             'message': 'Failed to execute pipeline'
         }), 500
 
@@ -540,14 +582,28 @@ def run_specific_model():
         import json
         
         data = request.get_json()
-        model_name = data.get('model', '')
+        model_name = data.get('model_name')
         
         if not model_name:
-            return jsonify({'error': 'Model name is required'}), 400
+            return jsonify({'success': False, 'error': 'Model name is required'}), 400
         
-        project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        # Change to dbt project directory - use correct relative path from dashboard
+        project_dir = '../dbt_stavanger_parking'
+        project_dir = os.path.abspath(project_dir)
         
-        # Run specific model
+        if not os.path.exists(project_dir):
+            return jsonify({
+                'success': False,
+                'output': '',
+                'error': f'Project directory not found: {project_dir}',
+                'results': [{
+                    'command': f'dbt run --select {model_name}',
+                    'success': False,
+                    'output': '',
+                    'error': f'Project directory not found: {project_dir}'
+                }]
+            }), 400
+        
         result = subprocess.run(
             ['dbt', 'run', '--select', model_name, '--target', 'dev'],
             cwd=project_dir,
@@ -558,16 +614,27 @@ def run_specific_model():
         
         return jsonify({
             'success': result.returncode == 0,
-            'model': model_name,
-            'output': result.stdout,
-            'error': result.stderr
+            'output': result.stdout if result.stdout else '',
+            'error': result.stderr if result.stderr else '',
+            'results': [{
+                'command': f'dbt run --select {model_name}',
+                'success': result.returncode == 0,
+                'output': result.stdout if result.stdout else '',
+                'error': result.stderr if result.stderr else ''
+            }]
         })
         
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e),
-            'message': 'Failed to run model'
+            'output': '',
+            'error': f'Failed to run model: {str(e)}',
+            'results': [{
+                'command': f'dbt run --select {model_name}',
+                'success': False,
+                'output': '',
+                'error': f'Failed to run model: {str(e)}'
+            }]
         }), 500
 
 @app.route('/api/pipeline/test', methods=['POST'])
@@ -577,7 +644,23 @@ def run_tests():
         import subprocess
         import os
         
-        project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        # Change to dbt project directory - use correct relative path from dashboard
+        project_dir = '../dbt_stavanger_parking'
+        project_dir = os.path.abspath(project_dir)
+        
+        if not os.path.exists(project_dir):
+            return jsonify({
+                'success': False,
+                'output': '',
+                'error': f'Project directory not found: {project_dir}',
+                'tests_passed': False,
+                'results': [{
+                    'command': 'dbt test --target dev',
+                    'success': False,
+                    'output': '',
+                    'error': f'Project directory not found: {project_dir}'
+                }]
+            }), 400
         
         result = subprocess.run(
             ['dbt', 'test', '--target', 'dev'],
@@ -589,16 +672,29 @@ def run_tests():
         
         return jsonify({
             'success': result.returncode == 0,
-            'output': result.stdout,
-            'error': result.stderr,
-            'tests_passed': result.returncode == 0
+            'output': result.stdout if result.stdout else '',
+            'error': result.stderr if result.stderr else '',
+            'tests_passed': result.returncode == 0,
+            'results': [{
+                'command': 'dbt test --target dev',
+                'success': result.returncode == 0,
+                'output': result.stdout if result.stdout else '',
+                'error': result.stderr if result.stderr else ''
+            }]
         })
         
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e),
-            'message': 'Failed to run tests'
+            'output': '',
+            'error': f'Failed to run tests: {str(e)}',
+            'tests_passed': False,
+            'results': [{
+                'command': 'dbt test --target dev',
+                'success': False,
+                'output': '',
+                'error': f'Failed to run tests: {str(e)}'
+            }]
         }), 500
 
 @app.route('/api/pipeline/status-detail')
