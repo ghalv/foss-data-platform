@@ -49,10 +49,10 @@
             </a>
             <div class="navbar-nav ms-auto">
                 <a class="nav-link active" href="/"><i class="fas fa-home"></i> Dashboard</a>
-                <a class="nav-link" href="/pipeline"><i class="fas fa-project-diagram"></i> Pipeline</a>
-                <a class="nav-link" href="/data-browser"><i class="fas fa-search"></i> Data Browser</a>
-                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+                <a class="nav-link" href="/pipeline-management"><i class="fas fa-cogs"></i> Pipelines</a>
+                <a class="nav-link" href="/data-browser"><i class="fas fa-search"></i> Data</a>
                 <a class="nav-link" href="/metrics"><i class="fas fa-chart-bar"></i> Metrics</a>
+                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
             </div>
         </div>
     </nav>
@@ -96,42 +96,100 @@
         </div>
 
         <!-- Core Platform Services -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <h3 class="mb-3">
-                    <i class="fas fa-cogs text-primary"></i>
-                    Core Platform Services
-                </h3>
+        <div class="container mt-4">
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-cogs fa-3x text-primary mb-3"></i>
+                            <h5 class="card-title">Pipeline Management</h5>
+                            <p class="card-text">Manage, configure, and monitor all data pipelines</p>
+                            <a href="/pipeline-management" class="btn btn-primary">Manage Pipelines</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-search fa-3x text-info mb-3"></i>
+                            <h5 class="card-title">Data Platform</h5>
+                            <p class="card-text">Query data, manage storage, and monitor quality</p>
+                            <a href="/data-browser" class="btn btn-info">Explore Data</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-heartbeat fa-3x text-success mb-3"></i>
+                            <h5 class="card-title">System Health</h5>
+                            <p class="card-text">Monitor platform health and performance</p>
+                            <a href="/health" class="btn btn-success">View Health</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 service-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <i class="fas fa-project-diagram fa-3x text-primary mb-3"></i>
-                        <h5 class="card-title">Pipeline Management</h5>
-                        <p class="card-text">Manage and monitor your data pipelines with Dagster and dbt</p>
-                        <a href="/pipeline" class="btn btn-primary">Go to Pipeline</a>
+
+        <!-- Data Platform Features -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-database"></i> Data Platform Features
+                        </h5>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 service-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <i class="fas fa-search fa-3x text-info mb-3"></i>
-                        <h5 class="card-title">Data Browser</h5>
-                        <p class="card-text">Interactive SQL queries and data exploration with Trino</p>
-                        <a href="/data-browser" class="btn btn-info">Open Browser</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 service-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <i class="fas fa-chart-bar fa-3x text-success mb-3"></i>
-                        <h5 class="card-title">Analytics & Monitoring</h5>
-                        <p class="card-text">System metrics, health checks, and performance monitoring</p>
-                        <a href="/metrics" class="btn btn-success">View Metrics</a>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <a href="/data-browser" class="text-decoration-none">
+                                    <div class="p-3 border rounded h-100">
+                                        <i class="fas fa-search fa-2x text-primary mb-2"></i>
+                                        <h6>SQL Query</h6>
+                                        <small class="text-muted">Execute SQL queries</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="/storage-management" class="text-decoration-none">
+                                    <div class="p-3 border rounded h-100">
+                                        <i class="fas fa-hdd fa-2x text-success mb-2"></i>
+                                        <h6>Storage Management</h6>
+                                        <small class="text-muted">Manage buckets & files</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="/bi-dashboard" class="text-decoration-none">
+                                    <div class="p-3 border rounded h-100">
+                                        <i class="fas fa-chart-line fa-2x text-info mb-2"></i>
+                                        <h6>BI Dashboard</h6>
+                                        <small class="text-muted">Analytics & insights</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="/streaming" class="text-decoration-none">
+                                    <div class="p-3 border rounded h-100">
+                                        <i class="fas fa-stream fa-2x text-warning mb-2"></i>
+                                        <h6>Real-time Streaming</h6>
+                                        <small class="text-muted">Kafka & Flink monitoring</small>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="row text-center mt-3">
+                            <div class="col-md-3">
+                                <a href="/api/quality/run-checks" class="text-decoration-none" target="_blank">
+                                    <div class="p-3 border rounded h-100">
+                                        <i class="fas fa-shield-alt fa-2x text-danger mb-2"></i>
+                                        <h6>Data Quality</h6>
+                                        <small class="text-muted">Run quality checks</small>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -150,40 +208,40 @@
             <div class="col-md-3 mb-3">
                 <div class="card h-100 service-card border-0 shadow-sm">
                     <div class="card-body text-center">
-                        <i class="fas fa-code fa-2x text-warning mb-2"></i>
-                        <h6 class="card-title">JupyterLab</h6>
-                        <p class="card-text small">Interactive development environment</p>
-                        <a href="http://localhost:8888" target="_blank" class="btn btn-warning btn-sm">Open JupyterLab</a>
+                        <i class="fas fa-project-diagram fa-2x text-primary mb-2"></i>
+                        <h6 class="card-title">Dagster</h6>
+                        <p class="card-text small">Data orchestration platform</p>
+                        <a href="http://localhost:3000" target="_blank" class="btn btn-outline-primary btn-sm">Open</a>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
                 <div class="card h-100 service-card border-0 shadow-sm">
                     <div class="card-body text-center">
-                        <i class="fas fa-ship fa-2x text-primary mb-2"></i>
-                        <h6 class="card-title">Portainer</h6>
-                        <p class="card-text small">Container management interface</p>
-                        <a href="http://localhost:9000" target="_blank" class="btn btn-primary btn-sm">Open Portainer</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card h-100 service-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <i class="fas fa-chart-line fa-2x text-success mb-2"></i>
+                        <i class="fas fa-chart-line fa-2x text-info mb-2"></i>
                         <h6 class="card-title">Grafana</h6>
                         <p class="card-text small">Data visualization and monitoring</p>
-                        <a href="http://localhost:3001" target="_blank" class="btn btn-success btn-sm">Open Grafana</a>
+                        <a href="http://localhost:3001" target="_blank" class="btn btn-outline-info btn-sm">Open</a>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
                 <div class="card h-100 service-card border-0 shadow-sm">
                     <div class="card-body text-center">
-                        <i class="fas fa-database fa-2x text-info mb-2"></i>
+                        <i class="fas fa-database fa-2x text-success mb-2"></i>
                         <h6 class="card-title">Trino</h6>
                         <p class="card-text small">Distributed SQL query engine</p>
-                        <a href="http://localhost:8080" target="_blank" class="btn btn-info btn-sm">Open Trino</a>
+                        <a href="http://localhost:8080" target="_blank" class="btn btn-outline-success btn-sm">Open</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card h-100 service-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="fas fa-cube fa-2x text-warning mb-2"></i>
+                        <h6 class="card-title">MinIO</h6>
+                        <p class="card-text small">S3-compatible object storage</p>
+                        <a href="http://localhost:9003" target="_blank" class="btn btn-outline-warning btn-sm">Open</a>
                     </div>
                 </div>
             </div>
@@ -192,71 +250,61 @@
             <div class="col-md-3 mb-3">
                 <div class="card h-100 service-card border-0 shadow-sm">
                     <div class="card-body text-center">
-                        <i class="fas fa-cloud fa-2x text-secondary mb-2"></i>
-                        <h6 class="card-title">MinIO</h6>
-                        <p class="card-text small">Object storage (S3-compatible)</p>
-                        <a href="http://localhost:9003" target="_blank" class="btn btn-secondary btn-sm">Open MinIO</a>
+                        <i class="fas fa-ship fa-2x text-primary mb-2"></i>
+                        <h6 class="card-title">Portainer</h6>
+                        <p class="card-text small">Container management</p>
+                        <a href="http://localhost:9000" target="_blank" class="btn btn-outline-primary btn-sm">Open</a>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
                 <div class="card h-100 service-card border-0 shadow-sm">
                     <div class="card-body text-center">
-                        <i class="fas fa-project-diagram fa-2x text-danger mb-2"></i>
-                        <h6 class="card-title">Dagster</h6>
-                        <p class="card-text small">Data orchestration platform</p>
-                        <a href="http://localhost:3000" target="_blank" class="btn btn-danger btn-sm">Open Dagster</a>
+                        <i class="fas fa-code fa-2x text-success mb-2"></i>
+                        <h6 class="card-title">JupyterLab</h6>
+                        <p class="card-text small">Interactive development</p>
+                        <a href="http://localhost:8888" target="_blank" class="btn btn-outline-success btn-sm">Open</a>
                     </div>
                 </div>
             </div>
             <div class="col-md-3 mb-3">
                 <div class="card h-100 service-card border-0 shadow-sm">
                     <div class="card-body text-center">
-                        <i class="fas fa-chart-area fa-2x text-warning mb-2"></i>
+                        <i class="fas fa-chart-bar fa-2x text-warning mb-2"></i>
                         <h6 class="card-title">Prometheus</h6>
-                        <p class="card-text small">Metrics collection and storage</p>
-                        <a href="http://localhost:9090" target="_blank" class="btn btn-warning btn-sm">Open Prometheus</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="card h-100 service-card border-0 shadow-sm">
-                    <div class="card-body text-center">
-                        <i class="fas fa-ice-cream fa-2x text-primary mb-2"></i>
-                        <h6 class="card-title">Iceberg</h6>
-                        <p class="card-text small">Table format & metadata</p>
-                        <a href="/data-browser" class="btn btn-primary btn-sm">Browse Tables</a>
+                        <p class="card-text small">Metrics collection</p>
+                        <a href="http://localhost:9090" target="_blank" class="btn btn-outline-warning btn-sm">Open</a>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Quick Status -->
+        <!-- Quick Status Footer -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-light">
                         <h5 class="mb-0">
                             <i class="fas fa-info-circle text-info"></i>
-                            Quick Status
+                            Quick Status Overview
                         </h5>
                     </div>
                     <div class="card-body">
                         <div class="row text-center">
                             <div class="col-md-3">
-                                <h4 class="text-primary mb-1">{{ services.values() | selectattr('status', 'equalto', 'healthy') | list | length }}/{{ services|length }}</h4>
+                                <h4 class="text-primary mb-1" id="healthyServices">0/0</h4>
                                 <small class="text-muted">Services Healthy</small>
                             </div>
                             <div class="col-md-3">
-                                <h4 class="text-success mb-1">5/5</h4>
+                                <h4 class="text-success mb-1" id="pipelineModels">0/0</h4>
                                 <small class="text-muted">Pipeline Models</small>
                             </div>
                             <div class="col-md-3">
-                                <h4 class="text-info mb-1">1000+</h4>
+                                <h4 class="text-info mb-1" id="dataRecords">0</h4>
                                 <small class="text-muted">Data Records</small>
                             </div>
                             <div class="col-md-3">
-                                <h4 class="text-warning mb-1">Active</h4>
+                                <h4 class="text-warning mb-1" id="pipelineStatus">Unknown</h4>
                                 <small class="text-muted">Pipeline Status</small>
                             </div>
                         </div>
@@ -277,6 +325,104 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Update quick status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateQuickStatus();
+        });
+
+        function updateQuickStatus() {
+            // Update service health count
+            updateServiceHealthCount();
+            
+            // Update pipeline models count
+            updatePipelineModelsCount();
+            
+            // Update data records count
+            updateDataRecordsCount();
+            
+            // Update pipeline status
+            updatePipelineStatus();
+        }
+
+        function updateServiceHealthCount() {
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.services) {
+                        const totalServices = Object.keys(data.services).length;
+                        const healthyServices = Object.values(data.services).filter(s => s.status === 'healthy').length;
+                        document.getElementById('healthyServices').textContent = `${healthyServices}/${totalServices}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching service health:', error);
+                    document.getElementById('healthyServices').textContent = '0/0';
+                });
+        }
+
+        function updatePipelineModelsCount() {
+            fetch('/api/pipeline/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const totalPipelines = data.total_pipelines || 0;
+                        const activePipelines = data.active_pipelines || 0;
+                        document.getElementById('pipelineModels').textContent = `${activePipelines}/${totalPipelines}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching pipeline stats:', error);
+                    document.getElementById('pipelineModels').textContent = '0/0';
+                });
+        }
+
+        function updateDataRecordsCount() {
+            fetch('/api/platform/parking-metrics')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.total_records !== undefined) {
+                        const count = data.total_records;
+                        if (count > 1000) {
+                            document.getElementById('dataRecords').textContent = `${(count/1000).toFixed(1)}K+`;
+                        } else {
+                            document.getElementById('dataRecords').textContent = count.toString();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching data records:', error);
+                    document.getElementById('dataRecords').textContent = '0';
+                });
+        }
+
+        function updatePipelineStatus() {
+            fetch('/api/pipeline/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.failed_pipelines > 0) {
+                            document.getElementById('pipelineStatus').textContent = 'Warning';
+                            document.getElementById('pipelineStatus').className = 'text-warning mb-1';
+                        } else if (data.active_pipelines > 0) {
+                            document.getElementById('pipelineStatus').textContent = 'Active';
+                            document.getElementById('pipelineStatus').className = 'text-success mb-1';
+                        } else {
+                            document.getElementById('pipelineStatus').textContent = 'Idle';
+                            document.getElementById('pipelineStatus').className = 'text-secondary mb-1';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching pipeline status:', error);
+                    document.getElementById('pipelineStatus').textContent = 'Unknown';
+                    document.getElementById('pipelineStatus').className = 'text-secondary mb-1';
+                });
+        }
+
+        // Auto-refresh quick status every 30 seconds
+        setInterval(updateQuickStatus, 30000);
+    </script>
 </body>
 </html>
 

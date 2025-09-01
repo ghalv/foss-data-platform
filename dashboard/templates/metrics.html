@@ -75,37 +75,41 @@
             </div>
         </div>
 
-        <!-- Key Metrics Overview -->
+        <!-- System Metrics Overview -->
         <div class="row mb-4">
             <div class="col-md-3">
-                <div class="card cpu-card">
-                    <div class="card-body text-center">
-                        <h3 class="mb-2">{{ system_metrics.cpu }}%</h3>
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-microchip fa-2x text-primary mb-2"></i>
+                        <h4 id="cpuUsage">0%</h4>
                         <p class="mb-0">CPU Usage</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card memory-card">
-                    <div class="card-body text-center">
-                        <h3 class="mb-2">{{ system_metrics.memory.percent }}%</h3>
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-memory fa-2x text-success mb-2"></i>
+                        <h4 id="memoryUsage">0%</h4>
                         <p class="mb-0">Memory Usage</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card disk-card">
-                    <div class="card-body text-center">
-                        <h3 class="mb-2">{{ system_metrics.disk.percent }}%</h3>
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-hdd fa-2x text-info mb-2"></i>
+                        <h4 id="diskUsage">0%</h4>
                         <p class="mb-0">Disk Usage</p>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card network-card">
-                    <div class="card-body text-center">
-                        <h3 class="mb-2">{{ services|length }}</h3>
-                        <p class="mb-0">Active Services</p>
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-network-wired fa-2x text-warning mb-2"></i>
+                        <h4 id="networkUsage">0%</h4>
+                        <p class="mb-0">Network I/O</p>
                     </div>
                 </div>
             </div>

@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Management - FOSS Data Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .storage-card {
+            transition: transform 0.2s;
+        }
+        .storage-card:hover {
+            transform: translateY(-2px);
+        }
+        .bucket-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .bucket-item:hover {
+            background-color: #f8f9fa;
+        }
+        .object-item {
+            border-left: 3px solid #dee2e6;
+            padding-left: 1rem;
+        }
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 0.375rem;
+            padding: 2rem;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        .upload-area:hover {
+            border-color: #0d6efd;
+        }
+        .upload-area.dragover {
+            border-color: #0d6efd;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-database"></i> FOSS Data Platform
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a class="nav-link" href="/pipeline-management"><i class="fas fa-cogs"></i> Pipelines</a>
+                <a class="nav-link active" href="/data-browser"><i class="fas fa-search"></i> Data</a>
+                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-5">
+                    <i class="fas fa-hdd text-primary"></i>
+                    Storage Management
+                </h1>
+                <p class="lead text-muted">Part of the Data Platform - Manage your data storage programmatically</p>
+                <div class="mt-2">
+                    <a href="/data-browser" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Back to Data Platform
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Storage Overview -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-database fa-2x text-primary mb-2"></i>
+                        <h4 id="totalBuckets">0</h4>
+                        <p class="mb-0">Total Buckets</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-file fa-2x text-success mb-2"></i>
+                        <h4 id="totalObjects">0</h4>
+                        <p class="mb-0">Total Objects</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-hdd fa-2x text-info mb-2"></i>
+                        <h4 id="totalSize">0 GB</h4>
+                        <p class="mb-0">Total Size</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-upload fa-2x text-warning mb-2"></i>
+                        <h4 id="uploadCount">0</h4>
+                        <p class="mb-0">Uploads Today</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Storage Actions -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-plus"></i> Create Bucket
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="newBucketName" placeholder="Enter bucket name">
+                            <button class="btn btn-primary" onclick="createBucket()">
+                                <i class="fas fa-plus"></i> Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-upload"></i> Smart Upload
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                            <p class="mb-0">Click to select file or drag and drop</p>
+                            <small class="text-muted">Auto-detects format & triggers pipelines</small>
+                        </div>
+                        <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)">
+                        <div class="mt-2">
+                            <select class="form-select" id="uploadBucket">
+                                <option value="">Select bucket...</option>
+                            </select>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="autoProcess" checked>
+                            <label class="form-check-label" for="autoProcess">
+                                Auto-process with pipelines
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line"></i> Ingestion Stats
+                        </h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="row">
+                            <div class="col-6">
+                                <h6 id="totalIngestions">-</h6>
+                                <small class="text-muted">Total Files</small>
+                            </div>
+                            <div class="col-6">
+                                <h6 id="pipelinesTriggered">-</h6>
+                                <small class="text-muted">Pipelines</small>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-info mt-2" onclick="loadIngestionStats()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ingestion History -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history"></i> Recent Ingestion Activity
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="ingestionHistory">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading ingestion history...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Buckets and Objects -->
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-folder"></i> Buckets
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="bucketsList">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading buckets...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-file"></i> Objects in <span id="selectedBucketName">No bucket selected</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="objectsList">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-info-circle"></i> Select a bucket to view objects
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Bucket Modal -->
+    <div class="modal fade" id="createBucketModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Bucket</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createBucketForm">
+                        <div class="mb-3">
+                            <label class="form-label">Bucket Name</label>
+                            <input type="text" class="form-control" id="modalBucketName" required>
+                            <div class="form-text">Bucket names must be globally unique and follow S3 naming conventions.</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmCreateBucket()">Create Bucket</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentBucket = null;
+        let buckets = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStorageStats();
+            loadBuckets();
+            setupDragAndDrop();
+            loadIngestionStats(); // Initial load for ingestion stats
+        });
+
+        function loadStorageStats() {
+            fetch('/api/storage/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('totalBuckets').textContent = data.total_buckets || 0;
+                    document.getElementById('totalObjects').textContent = data.total_objects || 0;
+                    document.getElementById('totalSize').textContent = (data.total_size_gb || 0) + ' GB';
+                    // Get actual upload count from storage API
+        fetch('/api/storage/stats')
+            .then(response => response.json())
+            .then(data => {
+                if (data.upload_count !== undefined) {
+                    document.getElementById('uploadCount').textContent = data.upload_count.toString();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading upload count:', error);
+                document.getElementById('uploadCount').textContent = '0';
+            });
+                })
+                .catch(error => {
+                    console.error('Error loading storage stats:', error);
+                });
+        }
+
+        function loadBuckets() {
+            fetch('/api/storage/buckets')
+                .then(response => response.json())
+                .then(data => {
+                    buckets = data;
+                    displayBuckets(data);
+                    updateUploadBucketOptions(data);
+                })
+                .catch(error => {
+                    console.error('Error loading buckets:', error);
+                    document.getElementById('bucketsList').innerHTML = 
+                        '<div class="text-center text-danger">Error loading buckets</div>';
+                });
+        }
+
+        function displayBuckets(bucketsData) {
+            const bucketsList = document.getElementById('bucketsList');
+            
+            if (bucketsData.length === 0) {
+                bucketsList.innerHTML = '<div class="text-center text-muted">No buckets found</div>';
+                return;
+            }
+
+            let html = '';
+            bucketsData.forEach(bucket => {
+                html += `
+                    <div class="bucket-item p-2 border-bottom" onclick="selectBucket('${bucket.name}')">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-folder text-warning me-2"></i>
+                                <strong>${bucket.name}</strong>
+                            </div>
+                            <small class="text-muted">${formatBytes(bucket.size)}</small>
+                        </div>
+                        <small class="text-muted">Created: ${new Date(bucket.creation_date).toLocaleDateString()}</small>
+                    </div>
+                `;
+            });
+            
+            bucketsList.innerHTML = html;
+        }
+
+        function selectBucket(bucketName) {
+            currentBucket = bucketName;
+            document.getElementById('selectedBucketName').textContent = bucketName;
+            loadBucketObjects(bucketName);
+            
+            // Highlight selected bucket
+            document.querySelectorAll('.bucket-item').forEach(item => {
+                item.classList.remove('bg-primary', 'text-white');
+            });
+            event.currentTarget.classList.add('bg-primary', 'text-white');
+        }
+
+        function loadBucketObjects(bucketName) {
+            fetch(`/api/storage/bucket/${bucketName}/objects`)
+                .then(response => response.json())
+                .then(data => {
+                    displayObjects(data);
+                })
+                .catch(error => {
+                    console.error('Error loading objects:', error);
+                    document.getElementById('objectsList').innerHTML = 
+                        '<div class="text-center text-danger">Error loading objects</div>';
+                });
+        }
+
+        function displayObjects(objects) {
+            const objectsList = document.getElementById('objectsList');
+            
+            if (objects.length === 0) {
+                objectsList.innerHTML = '<div class="text-center text-muted">No objects in this bucket</div>';
+                return;
+            }
+
+            let html = '';
+            objects.forEach(obj => {
+                html += `
+                    <div class="object-item p-2 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-file text-info me-2"></i>
+                                <strong>${obj.key}</strong>
+                            </div>
+                            <div>
+                                <small class="text-muted me-3">${formatBytes(obj.size)}</small>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteObject('${obj.key}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted">Modified: ${new Date(obj.last_modified).toLocaleString()}</small>
+                    </div>
+                `;
+            });
+            
+            objectsList.innerHTML = html;
+        }
+
+        function createBucket() {
+            const bucketName = document.getElementById('newBucketName').value.trim();
+            if (!bucketName) {
+                alert('Please enter a bucket name');
+                return;
+            }
+
+            // Show modal for confirmation
+            document.getElementById('modalBucketName').value = bucketName;
+            new bootstrap.Modal(document.getElementById('createBucketModal')).show();
+        }
+
+        function confirmCreateBucket() {
+            const bucketName = document.getElementById('modalBucketName').value.trim();
+            
+            fetch('/api/storage/buckets', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name: bucketName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('createBucketModal')).hide();
+                    document.getElementById('newBucketName').value = '';
+                    loadBuckets();
+                    showNotification('Bucket created successfully!', 'success');
+                } else {
+                    alert('Failed to create bucket: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error creating bucket: ' + error.message);
+            });
+        }
+
+        function deleteObject(objectKey) {
+            if (!confirm(`Are you sure you want to delete ${objectKey}?`)) {
+                return;
+            }
+
+            fetch(`/api/storage/bucket/${currentBucket}/objects/${encodeURIComponent(objectKey)}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadBucketObjects(currentBucket);
+                    showNotification('Object deleted successfully!', 'success');
+                } else {
+                    alert('Failed to delete object: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error deleting object: ' + error.message);
+            });
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+        }
+
+        function uploadFile(file) {
+            const bucketName = document.getElementById('uploadBucket').value;
+            if (!bucketName) {
+                alert('Please select a bucket first');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('bucket', bucketName);
+            formData.append('key', file.name);
+            formData.append('autoProcess', document.getElementById('autoProcess').checked);
+
+            fetch('/api/storage/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('File uploaded successfully!', 'success');
+                    if (currentBucket === bucketName) {
+                        loadBucketObjects(bucketName);
+                    }
+                    loadStorageStats();
+                    loadIngestionStats(); // Refresh ingestion stats after upload
+                } else {
+                    alert('Upload failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Upload error: ' + error.message);
+            });
+        }
+
+        function updateUploadBucketOptions(bucketsData) {
+            const select = document.getElementById('uploadBucket');
+            select.innerHTML = '<option value="">Select bucket...</option>';
+            
+            bucketsData.forEach(bucket => {
+                const option = document.createElement('option');
+                option.value = bucket.name;
+                option.textContent = bucket.name;
+                select.appendChild(option);
+            });
+        }
+
+        function setupDragAndDrop() {
+            const uploadArea = document.getElementById('uploadArea');
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    uploadFile(files[0]);
+                }
+            });
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
+        function loadIngestionStats() {
+            fetch('/api/ingestion/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('totalIngestions').textContent = data.total_files || 0;
+                    document.getElementById('pipelinesTriggered').textContent = data.total_pipelines || 0;
+                })
+                .catch(error => {
+                    console.error('Error loading ingestion stats:', error);
+                    document.getElementById('totalIngestions').textContent = 'N/A';
+                    document.getElementById('pipelinesTriggered').textContent = 'N/A';
+                });
+        }
+
+        function loadIngestionHistory() {
+            fetch('/api/ingestion/history')
+                .then(response => response.json())
+                .then(data => {
+                    displayIngestionHistory(data);
+                })
+                .catch(error => {
+                    console.error('Error loading ingestion history:', error);
+                    document.getElementById('ingestionHistory').innerHTML = 
+                        '<div class="text-center text-danger">Error loading ingestion history</div>';
+                });
+        }
+
+        function displayIngestionHistory(history) {
+            const ingestionHistoryList = document.getElementById('ingestionHistory');
+            
+            if (history.length === 0) {
+                ingestionHistoryList.innerHTML = '<div class="text-center text-muted">No ingestion history found</div>';
+                return;
+            }
+
+            let html = '';
+            history.forEach(item => {
+                html += `
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${item.file_name}</strong>
+                                <small class="text-muted ms-2">(${item.file_size})</small>
+                            </div>
+                            <div>
+                                <small class="text-muted me-2">Triggered: ${new Date(item.triggered_at).toLocaleString()}</small>
+                                <span class="badge bg-${item.status === 'success' ? 'success' : 'danger'}">${item.status}</span>
+                            </div>
+                        </div>
+                        <small class="text-muted">Pipeline: ${item.pipeline_name}</small>
+                    </div>
+                `;
+            });
+            
+            ingestionHistoryList.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

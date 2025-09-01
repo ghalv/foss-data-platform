@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Control - FOSS Data Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .pipeline-card {
+            transition: transform 0.2s;
+        }
+        .pipeline-card:hover {
+            transform: translateY(-2px);
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-running { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-error { background-color: #dc3545; }
+        .status-stopped { background-color: #6c757d; }
+        .execution-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+        }
+        .log-info { color: #0d6efd; }
+        .log-success { color: #198754; }
+        .log-warning { color: #fd7e14; }
+        .log-error { color: #dc3545; }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-database"></i> FOSS Data Platform
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a class="nav-link active" href="/pipeline-management"><i class="fas fa-cogs"></i> Pipelines</a>
+                <a class="nav-link" href="/data-browser"><i class="fas fa-search"></i> Data</a>
+                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-5">
+                    <i class="fas fa-project-diagram text-primary"></i>
+                    Pipeline Control
+                </h1>
+                <p class="lead text-muted">Monitor and control pipeline execution in real-time</p>
+            </div>
+        </div>
+
+        <!-- Pipeline Selection -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list"></i> Pipeline Control
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label"><strong>Selected Pipeline:</strong></label>
+                                <select class="form-select" id="pipelineSelector" onchange="selectPipeline()">
+                                    <option value="">Choose a pipeline...</option>
+                                    {% for pipeline in pipelines %}
+                                    <option value="{{ pipeline.id }}">{{ pipeline.name }} ({{ pipeline.type }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label"><strong>Actions:</strong></label>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-success" onclick="runPipeline()" id="runBtn" disabled>
+                                        <i class="fas fa-play"></i> Run Pipeline
+                                    </button>
+                                    <button class="btn btn-warning" onclick="stopPipeline()" id="stopBtn" disabled>
+                                        <i class="fas fa-stop"></i> Stop Pipeline
+                                    </button>
+                                    <button class="btn btn-info" onclick="refreshStatus()" id="refreshBtn" disabled>
+                                        <i class="fas fa-sync"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Pipeline Info -->
+        <div class="row mb-4" id="currentPipelineInfo" style="display: none;">
+            <div class="col-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle"></i> Current Pipeline: <span id="currentPipelineName"></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-project-diagram fa-2x text-primary mb-2"></i>
+                                    <h6>Type</h6>
+                                    <p id="currentPipelineType" class="text-muted">-</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-clock fa-2x text-info mb-2"></i>
+                                    <h6>Last Run</h6>
+                                    <p id="currentPipelineLastRun" class="text-muted">-</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-database fa-2x text-success mb-2"></i>
+                                    <h6>Models</h6>
+                                    <p id="currentPipelineModels" class="text-muted">-</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-check-circle fa-2x text-warning mb-2"></i>
+                                    <h6>Tests</h6>
+                                    <p id="currentPipelineTests" class="text-muted">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipeline Status Overview -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card pipeline-card border-0 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle"></i> Pipeline Status
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="status-indicator status-running"></span>
+                                    <strong>Status:</strong> <span id="pipelineStatus">Ready</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas fa-clock text-muted me-2"></i>
+                                    <strong>Last Run:</strong> <span id="lastRun">Never</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas fa-database text-muted me-2"></i>
+                                    <strong>Models:</strong> <span id="modelsCount">5</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    <strong>Tests:</strong> <span id="testsPassed">0</span>/<span id="testsTotal">0</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas fa-shield-alt text-muted me-2"></i>
+                                    <strong>Data Quality:</strong> <span id="dataQuality">Unknown</span>
+                                </div>
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                    <strong>Alerts:</strong> <span id="criticalAlerts">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card metric-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="mb-2" id="totalRecords">0</h3>
+                        <p class="mb-0">Total Records</p>
+                    </div>
+                </div>
+                <div class="card mt-3 border-0 shadow-sm" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                    <div class="card-body text-center">
+                        <h3 class="mb-2" id="locationsMonitored">0</h3>
+                        <p class="mb-0">Locations</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Execution Controls -->
+        <div class="row mb-4" id="executionControls" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cogs"></i> Execution Controls
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Target Environment</label>
+                                    <select class="form-select" id="targetEnv">
+                                        <option value="dev">Development</option>
+                                        <option value="staging">Staging</option>
+                                        <option value="prod">Production</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Execution Mode</label>
+                                    <select class="form-select" id="executionMode">
+                                        <option value="full">Full Pipeline</option>
+                                        <option value="models">Models Only</option>
+                                        <option value="tests">Tests Only</option>
+                                        <option value="seed">Seed Data Only</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Parallelism</label>
+                                    <select class="form-select" id="parallelism">
+                                        <option value="1">1 Thread</option>
+                                        <option value="2">2 Threads</option>
+                                        <option value="4" selected>4 Threads</option>
+                                        <option value="8">8 Threads</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="dryRun">
+                                    <label class="form-check-label" for="dryRun">
+                                        Dry Run (Preview changes)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fullRefresh">
+                                    <label class="form-check-label" for="fullRefresh">
+                                        Full Refresh (Rebuild all models)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Execution Logs -->
+        <div class="row mb-4" id="executionLogs" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-terminal"></i> Execution Logs
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="execution-log" id="logOutput">
+                            <div class="log-entry log-info">Select a pipeline and click Run to start execution...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="row mb-4" id="performanceMetrics" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line"></i> Performance Metrics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-stopwatch fa-2x text-primary mb-2"></i>
+                                    <h6>Execution Time</h6>
+                                    <p id="executionTime" class="text-muted">-</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-memory fa-2x text-info mb-2"></i>
+                                    <h6>Memory Usage</h6>
+                                    <p id="memoryUsage" class="text-muted">-</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-microchip fa-2x text-success mb-2"></i>
+                                    <h6>CPU Usage</h6>
+                                    <p id="cpuUsage" class="text-muted">-</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <i class="fas fa-hdd fa-2x text-warning mb-2"></i>
+                                    <h6>Disk Usage</h6>
+                                    <p id="diskUsage" class="text-muted">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mb-4" id="quickActions" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bolt"></i> Quick Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-primary w-100 mb-2" onclick="viewPipelineDetails()">
+                                    <i class="fas fa-eye"></i> View Details
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-info w-100 mb-2" onclick="viewPipelineLogs()">
+                                    <i class="fas fa-file-alt"></i> View Logs
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-success w-100 mb-2" onclick="exportPipelineData()">
+                                    <i class="fas fa-download"></i> Export Data
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-warning w-100 mb-2" onclick="schedulePipeline()">
+                                    <i class="fas fa-calendar"></i> Schedule
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedPipelineId = null;
+        let executionInterval = null;
+
+        function selectPipeline() {
+            const selector = document.getElementById('pipelineSelector');
+            selectedPipelineId = selector.value;
+            
+            if (selectedPipelineId) {
+                document.getElementById('runBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('refreshBtn').disabled = false;
+                document.getElementById('currentPipelineInfo').style.display = 'block';
+                document.getElementById('pipelineStatus').style.display = 'block';
+                document.getElementById('executionControls').style.display = 'block';
+                document.getElementById('executionLogs').style.display = 'block';
+                document.getElementById('performanceMetrics').style.display = 'block';
+                document.getElementById('quickActions').style.display = 'block'; // Show quick actions
+                
+                loadPipelineStatus();
+            } else {
+                document.getElementById('runBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('refreshBtn').disabled = true;
+                document.getElementById('currentPipelineInfo').style.display = 'none';
+                document.getElementById('pipelineStatus').style.display = 'none';
+                document.getElementById('executionControls').style.display = 'none';
+                document.getElementById('executionLogs').style.display = 'none';
+                document.getElementById('performanceMetrics').style.display = 'none';
+                document.getElementById('quickActions').style.display = 'none'; // Hide quick actions
+            }
+        }
+
+        // Auto-select pipeline from URL parameter
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const pipelineParam = urlParams.get('pipeline');
+            
+            if (pipelineParam) {
+                const selector = document.getElementById('pipelineSelector');
+                selector.value = pipelineParam;
+                selectPipeline();
+            } else if ('{{ selected_pipeline }}') {
+                // If no URL parameter but we have a selected pipeline from backend
+                const selector = document.getElementById('pipelineSelector');
+                selector.value = '{{ selected_pipeline }}';
+                selectPipeline();
+            }
+        });
+
+        function loadPipelineStatus() {
+            if (!selectedPipelineId) return;
+            
+            fetch(`/api/pipeline/${selectedPipelineId}/status`)
+                .then(response => response.json())
+                .then(data => {
+                    updatePipelineStatus(data);
+                })
+                .catch(error => {
+                    console.error('Error loading pipeline status:', error);
+                });
+        }
+
+        function updatePipelineStatus(data) {
+            // Update current pipeline info
+            const selectedOption = document.getElementById('pipelineSelector').selectedOptions[0];
+            if (selectedOption) {
+                document.getElementById('currentPipelineName').textContent = selectedOption.text;
+                document.getElementById('currentPipelineType').textContent = selectedOption.text.match(/\((.*?)\)/)?.[1] || 'Unknown';
+            }
+            
+            document.getElementById('currentPipelineLastRun').textContent = data.last_run;
+            document.getElementById('currentPipelineModels').textContent = data.models_count;
+            document.getElementById('currentPipelineTests').textContent = data.tests_passed;
+            
+            // Update pipeline status
+            document.getElementById('pipelineStatus').textContent = data.status;
+            document.getElementById('lastRun').textContent = data.last_run;
+            document.getElementById('modelsCount').textContent = data.models_count;
+            document.getElementById('testsPassed').textContent = data.tests_passed;
+            document.getElementById('testsTotal').textContent = data.tests_total; // Assuming tests_total is available
+            document.getElementById('dataQuality').textContent = data.data_quality;
+            document.getElementById('criticalAlerts').textContent = data.critical_alerts;
+            document.getElementById('totalRecords').textContent = data.total_records;
+            document.getElementById('locationsMonitored').textContent = data.total_locations;
+            
+            // Update status indicator
+            const indicator = document.getElementById('statusIndicator'); // This element is removed, so this line is no longer relevant
+            // The status indicator is now directly in the card header
+
+            // Update performance metrics
+            document.getElementById('executionTime').textContent = data.execution_time || '0s';
+            document.getElementById('memoryUsage').textContent = `${data.memory_usage || 0} MB`;
+            document.getElementById('cpuUsage').textContent = `${data.cpu_usage || 0}%`;
+            document.getElementById('diskUsage').textContent = `${data.disk_usage || 0} MB`;
+        }
+
+        function runPipeline() {
+            if (!selectedPipelineId) return;
+            
+            const target = document.getElementById('targetEnv').value;
+            const mode = document.getElementById('executionMode').value;
+            const parallelism = document.getElementById('parallelism').value;
+            const dryRun = document.getElementById('dryRun').checked;
+            const fullRefresh = document.getElementById('fullRefresh').checked;
+            
+            // Clear logs
+            document.getElementById('logOutput').innerHTML = '';
+            
+            // Add log entry
+            addLogEntry('Starting pipeline execution...', 'info');
+            
+            // Disable run button and show loading state
+            const runBtn = document.getElementById('runBtn');
+            const originalText = runBtn.innerHTML;
+            runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+            runBtn.disabled = true;
+            
+            // Start execution
+            fetch(`/api/pipeline/${selectedPipelineId}/run`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    target: target,
+                    mode: mode,
+                    parallelism: parallelism,
+                    dry_run: dryRun,
+                    full_refresh: fullRefresh
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLogEntry('Pipeline execution started successfully', 'success');
+                    addLogEntry('Monitoring execution progress...', 'info');
+                    startExecutionMonitoring();
+                } else {
+                    addLogEntry(`Failed to start pipeline: ${data.message || data.error}`, 'error');
+                    runBtn.innerHTML = originalText;
+                    runBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                addLogEntry(`Error starting pipeline: ${error.message}`, 'error');
+                runBtn.innerHTML = originalText;
+                runBtn.disabled = false;
+            });
+        }
+
+        function startExecutionMonitoring() {
+            // Clear any existing interval
+            if (executionInterval) {
+                clearInterval(executionInterval);
+            }
+            
+            // Start monitoring immediately
+            checkExecutionStatus();
+            
+            // Poll for execution status every 2 seconds
+            executionInterval = setInterval(checkExecutionStatus, 2000);
+        }
+
+        function checkExecutionStatus() {
+            fetch(`/api/pipeline/${selectedPipelineId}/execution-status`)
+                .then(response => response.json())
+                .then(data => {
+                    updateExecutionStatus(data);
+                })
+                .catch(error => {
+                    console.error('Error monitoring execution:', error);
+                    addLogEntry(`Error monitoring execution: ${error.message}`, 'error');
+                });
+        }
+
+        function updateExecutionStatus(data) {
+            console.log('Execution status update:', data);
+            
+            if (data.status === 'FINISHED') {
+                clearInterval(executionInterval);
+                const runBtn = document.getElementById('runBtn');
+                runBtn.innerHTML = '<i class="fas fa-play"></i> Run Pipeline';
+                runBtn.disabled = false;
+                
+                addLogEntry('Pipeline execution completed successfully!', 'success');
+                
+                // Update timestamp immediately
+                updateLastRunTimestamp();
+                
+                // Refresh pipeline status to get updated information
+                loadPipelineStatus();
+                
+                // Show completion notification
+                showCompletionNotification('Pipeline completed successfully!', 'success');
+                
+            } else if (data.status === 'FAILED') {
+                clearInterval(executionInterval);
+                const runBtn = document.getElementById('runBtn');
+                runBtn.innerHTML = '<i class="fas fa-play"></i> Run Pipeline';
+                runBtn.disabled = false;
+                
+                addLogEntry(`Pipeline execution failed: ${data.error}`, 'error');
+                
+                // Show error notification
+                showCompletionNotification(`Pipeline failed: ${data.error}`, 'error');
+                
+            } else if (data.status === 'RUNNING') {
+                // Update progress information
+                const elapsed = Math.round(data.elapsed_time || 0);
+                addLogEntry(`Pipeline running... (${elapsed}s elapsed)`, 'info');
+                
+                // Update run button to show progress
+                const runBtn = document.getElementById('runBtn');
+                runBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Running (${elapsed}s)`;
+                
+                // Update performance metrics
+                document.getElementById('executionTime').textContent = `${elapsed}s`;
+                
+            } else if (data.status === 'IDLE') {
+                // No active execution
+                addLogEntry('No active pipeline execution', 'info');
+            }
+        }
+
+        function updateLastRunTimestamp() {
+            const now = new Date();
+            const timestamp = now.toLocaleString();
+            
+            // Update all timestamp displays
+            const timestampElements = [
+                'currentPipelineLastRun',
+                'lastRun'
+            ];
+            
+            timestampElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = timestamp;
+                }
+            });
+            
+            // Also update the pipeline selector option text if it contains timestamp
+            const selector = document.getElementById('pipelineSelector');
+            if (selector && selector.selectedOptions[0]) {
+                const selectedOption = selector.selectedOptions[0];
+                const pipelineName = selectedOption.text.split(' (')[0]; // Remove timestamp if present
+                selectedOption.text = `${pipelineName} (dbt) - Last run: ${timestamp}`;
+            }
+        }
+
+        function stopPipeline() {
+            if (!selectedPipelineId) return;
+            
+            if (executionInterval) {
+                clearInterval(executionInterval);
+                executionInterval = null;
+            }
+            
+            addLogEntry('Pipeline execution stopped by user', 'warning');
+            document.getElementById('runBtn').disabled = false;
+        }
+
+        function refreshStatus() {
+            loadPipelineStatus();
+            addLogEntry('Status refreshed', 'info');
+        }
+
+        function addLogEntry(message, level) {
+            const logOutput = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${level}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        // Real Quick Actions implementation
+        function viewPipelineDetails() {
+            const pipelineName = getPipelineNameFromUrl();
+            if (pipelineName) {
+                window.open(`/pipeline/${pipelineName}`, '_blank');
+            } else {
+                alert('Unable to determine pipeline name');
+            }
+        }
+
+        function viewPipelineLogs() {
+            const pipelineName = getPipelineNameFromUrl();
+            if (pipelineName) {
+                // Fetch and display pipeline logs
+                fetch(`/api/pipeline/logs?pipeline=${pipelineName}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.logs) {
+                            showLogsModal(data.logs);
+                        } else {
+                            alert('No logs available for this pipeline');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching logs:', error);
+                        alert('Error fetching pipeline logs');
+                    });
+            }
+        }
+
+        function exportPipelineData() {
+            const pipelineName = getPipelineNameFromUrl();
+            if (pipelineName) {
+                // Export pipeline data as CSV
+                fetch(`/api/pipeline/export?pipeline=${pipelineName}`)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${pipelineName}_data_${new Date().toISOString().split('T')[0]}.csv`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                    })
+                    .catch(error => {
+                        console.error('Error exporting data:', error);
+                        alert('Error fetching pipeline logs');
+                    });
+            }
+        }
+
+        function schedulePipeline() {
+            const pipelineName = getPipelineNameFromUrl();
+            if (pipelineName) {
+                // Show scheduling modal
+                showScheduleModal(pipelineName);
+            }
+        }
+
+        function getPipelineNameFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('pipeline');
+        }
+
+        function showCompletionNotification(message, type) {
+            // Create a prominent completion notification
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 50px; right: 20px; z-index: 9999; min-width: 350px; font-size: 1.1em;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} fa-2x me-3"></i>
+                    <div>
+                        <strong>${type === 'success' ? 'Success!' : 'Error!'}</strong><br>
+                        ${message}
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 8 seconds for success, 12 seconds for errors
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, type === 'success' ? 8000 : 12000);
+        }
+    </script>
+</body>
+</html>

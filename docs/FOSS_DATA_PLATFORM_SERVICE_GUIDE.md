@@ -47,7 +47,25 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **3. 📊 Grafana** - `http://localhost:3000`
+### **3. 📈 Metrics Dashboard** - `http://localhost:5000/metrics`
+**When to Use:**
+- **Monitoring system performance** and resource usage
+- **Viewing real-time metrics** for CPU, memory, and disk
+- **Tracking system health** and performance trends
+- **Quick system overview** without external tools
+
+**What You Can Do:**
+- View CPU usage and core count
+- Monitor memory consumption and total available
+- Check disk usage and available space
+- Track system performance over time
+- Get quick system health overview
+
+**Access Method:** Integrated in dashboard, no authentication required
+
+---
+
+### **4. 📊 Grafana** - `http://localhost:3000`
 **When to Use:**
 - **Creating custom dashboards** and visualizations
 - **Monitoring system performance** over time
@@ -67,7 +85,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **4. 🐳 Portainer** - `http://localhost:9000`
+### **5. 🐳 Portainer** - `http://localhost:9000`
 **When to Use:**
 - **Managing Docker containers** and services
 - **Monitoring container performance** and logs
@@ -87,7 +105,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **5. 🔬 JupyterLab** - `http://localhost:8888`
+### **6. 🔬 JupyterLab** - `http://localhost:8888`
 **When to Use:**
 - **Interactive data exploration** and analysis
 - **Developing and testing** dbt models
@@ -109,7 +127,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ## **🗄️ Data & Processing Services**
 
-### **6. 🚀 Apache Trino** - `http://localhost:8080`
+### **7. 🚀 Apache Trino** - `http://localhost:8080`
 **When to Use:**
 - **Running SQL queries** against your data
 - **Data exploration** and ad-hoc analysis
@@ -132,7 +150,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **7. 🧊 Apache Iceberg**
+### **8. 🧊 Apache Iceberg**
 **When to Use:**
 - **ACID transactions** for data consistency
 - **Schema evolution** without breaking changes
@@ -151,7 +169,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **8. 🔧 dbt (Data Build Tool)**
+### **9. 🔧 dbt (Data Build Tool)**
 **When to Use:**
 - **Building data models** and transformations
 - **Running data pipelines** (seed, run, test)
@@ -172,7 +190,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **9. 📦 MinIO (Object Storage)** - `http://localhost:9001`
+### **10. 📦 MinIO (Object Storage)** - `http://localhost:9001`
 **When to Use:**
 - **Storing raw data files** (CSV, JSON, Parquet)
 - **Backing up pipeline artifacts**
@@ -192,7 +210,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **10. 🎯 Dagster** - `http://localhost:3001`
+### **11. 🎯 Dagster** - `http://localhost:3001`
 **When to Use:**
 - **Orchestrating complex data pipelines**
 - **Scheduling automated jobs**
@@ -210,7 +228,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **11. 📈 Prometheus** - `http://localhost:9090`
+### **12. 📈 Prometheus** - `http://localhost:9090`
 **When to Use:**
 - **Collecting system metrics** and performance data
 - **Setting up monitoring** and alerting

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Intelligence - FOSS Data Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .metric-card {
+            transition: transform 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+        .kpi-indicator {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .kpi-positive { color: #28a745; }
+        .kpi-negative { color: #dc3545; }
+        .kpi-neutral { color: #6c757d; }
+        .alert-card {
+            border-left: 4px solid;
+        }
+        .alert-critical { border-left-color: #dc3545; }
+        .alert-warning { border-left-color: #ffc107; }
+        .alert-info { border-left-color: #17a2b8; }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-database"></i> FOSS Data Platform
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a class="nav-link" href="/pipeline-management"><i class="fas fa-cogs"></i> Pipelines</a>
+                <a class="nav-link active" href="/data-browser"><i class="fas fa-search"></i> Data</a>
+                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-5">
+                    <i class="fas fa-chart-line text-primary"></i>
+                    Business Intelligence Dashboard
+                </h1>
+                <p class="lead text-muted">Part of the Data Platform - Real-time insights and analytics for data-driven decision making</p>
+                <div class="mt-2">
+                    <a href="/data-browser" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Back to Data Platform
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-percentage fa-2x text-primary mb-2"></i>
+                        <h5 id="utilizationThreshold">75%</h5>
+                        <small class="text-muted">Utilization Threshold</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                        <h5 id="peakHours">08:00-09:00</h5>
+                        <small class="text-muted">Peak Hours</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-database fa-2x text-info mb-2"></i>
+                        <h5 id="dataFreshness">1 hour</h5>
+                        <small class="text-muted">Data Freshness</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-heartbeat fa-2x text-success mb-2"></i>
+                        <h5 id="pipelineHealth">Excellent</h5>
+                        <small class="text-muted">Pipeline Health</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Quality Overview -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-shield-alt"></i> Data Quality Overview
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="qualityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list"></i> Quality Metrics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="qualityMetrics">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading metrics...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Freshness Timeline -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-clock"></i> Data Freshness Timeline
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="freshnessChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Alerts and Issues -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-exclamation-triangle"></i> Critical Issues
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="criticalIssues">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading critical issues...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-exclamation-circle"></i> Quality Warnings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="qualityWarnings">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading quality warnings...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Performance Metrics -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-table"></i> Table Performance Metrics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Table Name</th>
+                                        <th>Quality Score</th>
+                                        <th>Row Count</th>
+                                        <th>Last Updated</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableMetrics">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading table metrics...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Quality Details Modal -->
+    <div class="modal fade" id="qualityDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Data Quality Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="qualityDetailsContent">
+                        <!-- Content will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let qualityChart, freshnessChart;
+        let refreshInterval;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardData();
+            setupCharts();
+            
+            // Refresh data every 30 seconds
+            refreshInterval = setInterval(loadDashboardData, 30000);
+        });
+
+        function loadDashboardData() {
+            loadKPIs();
+            loadQualityMetrics();
+            loadTableMetrics();
+            loadAlerts();
+        }
+
+        function loadKPIs() {
+            // Load platform status
+            fetch('/api/platform/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update KPIs based on platform status
+                    document.getElementById('totalTables').textContent = '...';
+                    document.getElementById('dataQualityScore').textContent = '...';
+                    document.getElementById('dataFreshness').textContent = '...';
+                    document.getElementById('activeAlerts').textContent = '...';
+                })
+                .catch(error => {
+                    console.error('Error loading platform status:', error);
+                });
+
+            // Load data quality overview
+            fetch('/api/platform/quality')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('dataQualityScore').textContent = (data.overall_score * 100).toFixed(1) + '%';
+                        document.getElementById('totalTables').textContent = data.total_tables || 0;
+                        
+                        // Update quality chart
+                        updateQualityChart(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading quality data:', error);
+                });
+        }
+
+        function loadQualityMetrics() {
+            fetch('/api/platform/quality')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayQualityMetrics(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading quality metrics:', error);
+                });
+        }
+
+        function loadTableMetrics() {
+            fetch('/api/platform/catalog')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayTableMetrics(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading table metrics:', error);
+                });
+        }
+
+        function loadAlerts() {
+            fetch('/api/platform/quality')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayAlerts(data.alerts || []);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading alerts:', error);
+                });
+        }
+
+        function setupCharts() {
+            // Quality Chart
+            const qualityCtx = document.getElementById('qualityChart').getContext('2d');
+            qualityChart = new Chart(qualityCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['Completeness', 'Freshness', 'Validity', 'Consistency', 'Uniqueness'],
+                    datasets: [{
+                        label: 'Current Quality',
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 1
+                        }
+                    }
+                }
+            });
+
+            // Freshness Chart
+            const freshnessCtx = document.getElementById('freshnessChart').getContext('2d');
+            freshnessChart = new Chart(freshnessCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Data Freshness (hours)',
+                        data: [],
+                        borderColor: 'rgba(255, 193, 7, 1)',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Hours Since Last Update'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateQualityChart(qualityData) {
+            if (!qualityChart) return;
+
+            // Extract quality scores from the data
+            const scores = [];
+            const labels = [];
+            
+            // Use actual quality metrics from the data
+            if (qualityData && qualityData.checks) {
+                qualityData.checks.forEach(check => {
+                    labels.push(check.name);
+                    scores.push(check.score);
+                });
+            } else {
+                // Fallback to default labels if no data
+                labels.push('Completeness', 'Freshness', 'Validity', 'Consistency', 'Uniqueness');
+                scores.push(0.5, 0.5, 0.5, 0.5, 0.5);
+            }
+
+            qualityChart.data.labels = labels;
+            qualityChart.data.datasets[0].data = scores;
+            qualityChart.update();
+        }
+
+        function displayQualityMetrics(qualityData) {
+            const container = document.getElementById('qualityMetrics');
+            
+            if (!qualityData.quality_results) {
+                container.innerHTML = '<div class="text-center text-muted">No quality data available</div>';
+                return;
+            }
+
+            let html = '';
+            Object.entries(qualityData.quality_results).forEach(([tableName, metrics]) => {
+                const score = metrics.overall_score || 0;
+                const status = metrics.overall_status || 'unknown';
+                
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <strong>${tableName}</strong>
+                            <br><small class="text-muted">${status}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-${getStatusColor(status)}">${(score * 100).toFixed(1)}%</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function displayTableMetrics(catalogData) {
+            const tbody = document.getElementById('tableMetrics');
+            
+            if (!catalogData.catalogs || !catalogData.catalogs.iceberg) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No table data available</td></tr>';
+                return;
+            }
+
+            let html = '';
+            const tables = catalogData.catalogs.iceberg.tables.default || [];
+            
+            tables.forEach(table => {
+                const rowCount = table.row_count || 0;
+                const lastModified = 'Unknown'; // Would come from actual data
+                
+                html += `
+                    <tr>
+                        <td><strong>${table.table}</strong></td>
+                        <td><span class="badge bg-success">95%</span></td>
+                        <td>${rowCount.toLocaleString()}</td>
+                        <td>${lastModified}</td>
+                        <td><span class="badge bg-success">Healthy</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info" onclick="viewQualityDetails('${table.table}')">
+                                <i class="fas fa-eye"></i> Details
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function displayAlerts(alerts) {
+            // Display critical issues
+            const criticalIssues = alerts.filter(alert => alert.level === 'critical');
+            const criticalContainer = document.getElementById('criticalIssues');
+            
+            if (criticalIssues.length === 0) {
+                criticalContainer.innerHTML = '<div class="text-center text-success">No critical issues</div>';
+            } else {
+                let html = '';
+                criticalIssues.forEach(alert => {
+                    html += `
+                        <div class="alert alert-danger alert-sm mb-2">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>${alert.table}</strong>: ${alert.message}
+                        </div>
+                    `;
+                });
+                criticalContainer.innerHTML = html;
+            }
+
+            // Display quality warnings
+            const qualityWarnings = alerts.filter(alert => alert.level === 'warning');
+            const warningsContainer = document.getElementById('qualityWarnings');
+            
+            if (qualityWarnings.length === 0) {
+                warningsContainer.innerHTML = '<div class="text-center text-success">No quality warnings</div>';
+            } else {
+                let html = '';
+                qualityWarnings.forEach(alert => {
+                    html += `
+                        <div class="alert alert-warning alert-sm mb-2">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <strong>${alert.table}</strong>: ${alert.message}
+                        </div>
+                    `;
+                });
+                warningsContainer.innerHTML = html;
+            }
+
+            // Update active alerts count
+            document.getElementById('activeAlerts').textContent = alerts.length;
+        }
+
+        function viewQualityDetails(tableName) {
+            // This would show detailed quality metrics for a specific table
+            const modal = new bootstrap.Modal(document.getElementById('qualityDetailsModal'));
+            document.querySelector('#qualityDetailsModal .modal-title').textContent = `Quality Details: ${tableName}`;
+            
+            // Populate modal content
+            document.getElementById('qualityDetailsContent').innerHTML = `
+                <div class="text-center">
+                    <h6>Quality Metrics for ${tableName}</h6>
+                    <p class="text-muted">Detailed quality analysis would be displayed here</p>
+                </div>
+            `;
+            
+            modal.show();
+        }
+
+        function getStatusColor(status) {
+            switch (status) {
+                case 'excellent': return 'success';
+                case 'good': return 'info';
+                case 'fair': return 'warning';
+                case 'poor': return 'danger';
+                default: return 'secondary';
+            }
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>

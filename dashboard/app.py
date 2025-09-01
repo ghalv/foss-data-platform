@@ -14,6 +14,14 @@ import time
 from datetime import datetime
 import psutil
 import subprocess
+from api.storage import storage_api
+from api.query import trino_api
+from api.platform import platform_api
+from api.ingestion import ingestion_api
+from api.quality import quality_api
+from api.streaming import streaming_api
+import random
+
 
 app = Flask(__name__)
 
@@ -90,6 +98,78 @@ SERVICES = {
         'status': 'healthy',
         'category': 'Management',
         'icon': '🐳'
+    },
+    'kafka': {
+        'name': 'Apache Kafka',
+        'url': 'http://kafka:9092',
+        'external_url': 'http://localhost:9092',
+        'description': 'Distributed streaming platform',
+        'status': 'healthy',
+        'category': 'Streaming',
+        'icon': '📡'
+    },
+    'zookeeper': {
+        'name': 'Apache Zookeeper',
+        'url': 'http://zookeeper:2181',
+        'external_url': 'http://localhost:2181',
+        'description': 'Distributed coordination service',
+        'status': 'healthy',
+        'category': 'Streaming',
+        'icon': '🐘'
+    },
+    'flink': {
+        'name': 'Apache Flink',
+        'url': 'http://flink-jobmanager:8081',
+        'external_url': 'http://localhost:8081',
+        'description': 'Stream processing engine',
+        'status': 'healthy',
+        'category': 'Streaming',
+        'icon': '⚡'
+    },
+    'kafka-ui': {
+        'name': 'Kafka UI',
+        'url': 'http://kafka-ui:8080',
+        'external_url': 'http://localhost:8082',
+        'description': 'Kafka management interface',
+        'status': 'healthy',
+        'category': 'Streaming',
+        'icon': '🎛️'
+    },
+    'postgres': {
+        'name': 'PostgreSQL',
+        'url': 'http://postgres:5432',
+        'external_url': 'http://localhost:5432',
+        'description': 'Metadata database',
+        'status': 'healthy',
+        'category': 'Database',
+        'icon': '🐘'
+    },
+    'redis': {
+        'name': 'Redis',
+        'url': 'http://redis:6379',
+        'external_url': 'http://localhost:6379',
+        'description': 'In-memory data store',
+        'status': 'healthy',
+        'category': 'Cache',
+        'icon': '🔴'
+    },
+    'flink-taskmanager': {
+        'name': 'Flink TaskManager',
+        'url': 'http://flink-taskmanager:8081',
+        'external_url': 'http://localhost:8081',
+        'description': 'Flink task execution node',
+        'status': 'healthy',
+        'category': 'Streaming',
+        'icon': '⚡'
+    },
+    'trino-worker': {
+        'name': 'Trino Worker',
+        'url': 'http://trino-worker:8080',
+        'external_url': 'http://localhost:8080',
+        'description': 'Trino worker node',
+        'status': 'healthy',
+        'category': 'Query Engine',
+        'icon': '🚀'
     }
 }
 
@@ -307,15 +387,15 @@ def get_pipeline_metrics():
         
         # Fallback to sample data
         return {
-            'total_records': 1000,
-            'locations_monitored': 8,
-            'utilization_threshold': '75%',
-            'peak_hours': '08:00-09:00, 17:00-18:00',
-            'data_freshness': '1 hour',
-            'pipeline_health': 'excellent',
-            'max_utilization': '95%',
-            'peak_hour_percentage': '25%',
-            'critical_percentage': '15%'
+            'total_records': 0,
+            'locations_monitored': 0,
+            'utilization_threshold': 'N/A',
+            'peak_hours': 'N/A',
+            'data_freshness': 'N/A',
+            'pipeline_health': 'unknown',
+            'max_utilization': 'N/A',
+            'peak_hour_percentage': 'N/A',
+            'critical_percentage': 'N/A'
         }
     except Exception as e:
         print(f"Error getting pipeline metrics: {e}")
@@ -428,61 +508,12 @@ def service_redirect(service_id):
     else:
         return "Service not found", 404
 
-@app.route('/logs')
-def logs():
-    """View platform logs"""
-    try:
-        # Get service status and health information instead of logs
-        # (since we're running in a container and can't access Docker logs directly)
-        service_status = {}
-        for service_id, service_info in SERVICES.items():
-            service_status[service_id] = {
-                'name': service_info['name'],
-                'status': check_service_health(service_id, service_info),
-                'url': service_info['url'],
-                'description': service_info['description']
-            }
-        
-        # Try to get system logs if available
-        system_logs = "No system logs available"
-        log_paths = ['/var/log/messages', '/var/log/syslog', '/var/log/kern.log']
-        for log_path in log_paths:
-            try:
-                with open(log_path, 'r') as f:
-                    lines = f.readlines()
-                    system_logs = ''.join(lines[-50:])  # Last 50 lines
-                    break
-            except FileNotFoundError:
-                continue
-            except Exception:
-                continue
-        
-        logs_data = {
-            'system': system_logs,
-            'services': service_status
-        }
-        
-        return render_template('logs.html', logs=logs_data)
-    except Exception as e:
-        return f"Error accessing logs: {str(e)}", 500
 
-@app.route('/config')
-def config():
-    """Platform configuration management"""
-    # Read current configuration
-    config_data = {
-        'environment': os.environ.get('ENVIRONMENT', 'development'),
-        'docker_compose': 'docker-compose.yml',
-        'dbt_project': 'dbt/dbt_project.yml',
-        'dagster_workspace': 'dagster/workspace.yaml'
-    }
-    
-    return render_template('config.html', config=config_data)
 
 @app.route('/pipeline')
 def pipeline_status():
     """Pipeline status page"""
-    pipeline_status = get_pipeline_status()
+    pipeline_status = get_pipeline_status_data()
     pipeline_metrics = get_pipeline_metrics()
     
     return render_template('pipeline.html', 
@@ -501,42 +532,62 @@ def api_pipeline_metrics():
 
 @app.route('/api/pipeline/run', methods=['POST'])
 def run_pipeline():
-    """Run the complete Stavanger Parking pipeline"""
+    """Run a specific pipeline"""
     try:
         import subprocess
         import os
+        import json
         
-        # Change to dbt project directory - use symlink in dashboard directory
-        project_dir = 'dbt_stavanger_parking'
+        data = request.get_json()
+        pipeline_name = data.get('pipeline')
+        
+        if not pipeline_name:
+            return jsonify({
+                'success': False,
+                'error': 'Pipeline name is required'
+            }), 400
+        
+        # Map pipeline names to project directories
+        pipeline_configs = {
+            'stavanger_parking': {
+                'project_dir': 'dbt_stavanger_parking',
+                'commands': [
+                    ['dbt', 'seed', '--target', 'dev'],
+                    ['dbt', 'run', '--target', 'dev'],
+                    ['dbt', 'test', '--target', 'dev']
+                ]
+            }
+        }
+        
+        if pipeline_name not in pipeline_configs:
+            return jsonify({
+                'success': False,
+                'error': f'Unknown pipeline: {pipeline_name}'
+            }), 400
+        
+        config = pipeline_configs[pipeline_name]
+        project_dir = config['project_dir']
         
         if not os.path.exists(project_dir):
             return jsonify({
                 'success': False,
-                'results': [{
-                    'command': 'Pipeline execution',
-                    'success': False,
-                    'output': '',
-                    'error': f'Project directory not found: {project_dir}'
-                }],
-                'message': 'Project directory not found'
+                'error': f'Project directory not found: {project_dir}'
             }), 400
         
-        # Run dbt commands
-        commands = [
-            ['dbt', 'seed', '--target', 'dev'],
-            ['dbt', 'run', '--target', 'dev'],
-            ['dbt', 'test', '--target', 'dev']
-        ]
-        
+        # Run dbt commands using host environment
         results = []
-        for cmd in commands:
+        for cmd in config['commands']:
             try:
+                # Use dbt from container installation
+                cmd[0] = 'dbt'
+                
                 result = subprocess.run(
                     cmd, 
                     cwd=project_dir, 
                     capture_output=True, 
                     text=True, 
-                    timeout=300
+                    timeout=300,
+                    env=os.environ.copy()
                 )
                 results.append({
                     'command': ' '.join(cmd),
@@ -560,7 +611,6 @@ def run_pipeline():
                 })
         
         # Check if core pipeline (seed + run) succeeded
-        # Tests can fail during development without marking the pipeline as failed
         core_pipeline_success = results[0]['success'] and results[1]['success']  # seed and run
         tests_success = results[2]['success'] if len(results) > 2 else True
         
@@ -575,19 +625,14 @@ def run_pipeline():
             'results': results,
             'message': message,
             'pipeline_status': pipeline_status,
-            'tests_passed': tests_success
+            'tests_passed': tests_success,
+            'pipeline_name': pipeline_name
         })
         
     except Exception as e:
         return jsonify({
             'success': False,
-            'results': [{
-                'command': 'Pipeline execution',
-                'success': False,
-                'output': '',
-                'error': f'Failed to execute pipeline: {str(e)}'
-            }],
-            'message': 'Failed to execute pipeline'
+            'error': f'Failed to execute pipeline: {str(e)}'
         }), 500
 
 @app.route('/api/pipeline/run-model', methods=['POST'])
@@ -758,6 +803,11 @@ def get_pipeline_status_detail():
 def data_browser():
     """Data browser page for interactive data exploration"""
     return render_template('data_browser.html')
+
+@app.route('/streaming')
+def streaming():
+    """Real-time streaming dashboard"""
+    return render_template('streaming.html')
 
 @app.route('/api/query/execute', methods=['POST'])
 def execute_query():
@@ -1219,6 +1269,944 @@ def debug_trino_communication():
         return jsonify({
             'error': f'Debug test failed: {str(e)}'
         }), 500
+
+@app.route('/pipeline-management')
+def pipeline_management():
+    """Pipeline Management page - manage multiple pipelines"""
+    # Mock data for now - will be replaced with real pipeline registry
+    pipeline_stats = {
+        'total_pipelines': 1,
+        'running_pipelines': 1,
+        'warning_pipelines': 0,
+        'error_pipelines': 0
+    }
+    
+    pipelines = [
+        {
+            'id': 'stavanger_parking',
+            'name': 'Stavanger Parking',
+            'type': 'dbt',
+            'description': 'Real-time parking utilization insights and business intelligence',
+            'status': 'Running',
+            'last_run': '2025-09-01 15:33:59',
+            'models_count': 5,
+            'success_rate': 85
+        }
+    ]
+    
+    recent_executions = [
+        {
+            'pipeline_name': 'Stavanger Parking',
+            'timestamp': '2025-09-01 15:33:59',
+            'status': 'SUCCESS',
+            'status_color': 'success'
+        }
+    ]
+    
+    recent_alerts = [
+        {
+            'pipeline_name': 'Stavanger Parking',
+            'message': 'Some tests failed - check data quality',
+            'severity': 'warning'
+        }
+    ]
+    
+    return render_template('pipeline_management.html', 
+                         pipeline_stats=pipeline_stats,
+                         pipelines=pipelines,
+                         recent_executions=recent_executions,
+                         recent_alerts=recent_alerts)
+
+@app.route('/pipeline-control')
+def pipeline_control():
+    """Pipeline Control page - execute and monitor pipelines"""
+    # Get pipeline parameter from query string
+    pipeline_id = request.args.get('pipeline', 'stavanger_parking')
+    
+    # For now, only support the existing stavanger_parking pipeline
+    if pipeline_id == 'stavanger_parking':
+        pipelines = [
+            {
+                'id': 'stavanger_parking',
+                'name': 'Stavanger Parking',
+                'type': 'dbt'
+            }
+        ]
+        selected_pipeline = 'stavanger_parking'
+    else:
+        pipelines = []
+        selected_pipeline = None
+    
+    return render_template('pipeline_control.html', 
+                         pipelines=pipelines, 
+                         selected_pipeline=selected_pipeline)
+
+@app.route('/api/pipeline', methods=['POST'])
+def create_pipeline():
+    """Create a new pipeline"""
+    try:
+        data = request.get_json()
+        
+        # Mock implementation - in real system this would save to database
+        pipeline_id = f"pipeline_{int(time.time())}"
+        
+        return jsonify({
+            'success': True,
+            'pipeline_id': pipeline_id,
+            'message': 'Pipeline created successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/pipeline/<pipeline_id>', methods=['DELETE'])
+def delete_pipeline(pipeline_id):
+    """Delete a pipeline"""
+    try:
+        # Mock implementation - in real system this would delete from database
+        return jsonify({
+            'success': True,
+            'message': f'Pipeline {pipeline_id} deleted successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/pipeline/<pipeline_id>/run', methods=['POST'])
+def run_specific_pipeline(pipeline_id):
+    """Run a specific pipeline"""
+    try:
+        data = request.get_json()
+        target = data.get('target', 'dev')
+        
+        if pipeline_id == 'stavanger_parking':
+            # Create execution tracking file
+            execution_file = f'/tmp/pipeline_{pipeline_id}_execution.json'
+            execution_data = {
+                'pipeline_id': pipeline_id,
+                'status': 'RUNNING',
+                'start_time': time.time(),
+                'target': target,
+                'pid': None
+            }
+            
+            # Start pipeline execution in background
+            try:
+                # Run the pipeline
+                result = run_pipeline()
+                
+                if result.json['success']:
+                    # Update execution data with success
+                    execution_data['status'] = 'FINISHED'
+                    execution_data['end_time'] = time.time()
+                    execution_data['result'] = result.json
+                    
+                    # Update timestamp in pipeline status
+                    update_pipeline_timestamp(pipeline_id)
+                    
+                    with open(execution_file, 'w') as f:
+                        json.dump(execution_data, f)
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': 'Pipeline execution completed successfully',
+                        'execution_id': f'exec_{int(time.time())}'
+                    })
+                else:
+                    # Update execution data with failure
+                    execution_data['status'] = 'FAILED'
+                    execution_data['end_time'] = time.time()
+                    execution_data['error'] = result.json.get('error', 'Unknown error')
+                    
+                    with open(execution_file, 'w') as f:
+                        json.dump(execution_data, f)
+                    
+                    return jsonify({
+                        'success': False,
+                        'error': result.json.get('error', 'Pipeline execution failed')
+                    })
+                    
+            except Exception as e:
+                # Update execution data with error
+                execution_data['status'] = 'FAILED'
+                execution_data['end_time'] = time.time()
+                execution_data['error'] = str(e)
+                
+                with open(execution_file, 'w') as f:
+                    json.dump(execution_data, f)
+                
+                return jsonify({
+                    'success': False,
+                    'error': f'Pipeline execution error: {str(e)}'
+                }), 500
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Pipeline {pipeline_id} not found'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/pipeline/<pipeline_id>/status')
+def get_pipeline_status(pipeline_id):
+    """Get status of a specific pipeline"""
+    try:
+        # For now, only support the existing stavanger_parking pipeline
+        if pipeline_id == 'stavanger_parking':
+            return jsonify(get_pipeline_status_data())
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Pipeline {pipeline_id} not found'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/pipeline/<pipeline_id>/execution-status', methods=['GET'])
+def get_pipeline_execution_status(pipeline_id):
+    """Get real-time execution status for a specific pipeline"""
+    try:
+        if pipeline_id == 'stavanger_parking':
+            # Check if there's an active execution
+            execution_file = f'/tmp/pipeline_{pipeline_id}_execution.json'
+            
+            if os.path.exists(execution_file):
+                with open(execution_file, 'r') as f:
+                    execution_data = json.load(f)
+                
+                # Check if execution is still running
+                if execution_data.get('status') == 'RUNNING':
+                    # Check if the process is still alive
+                    try:
+                        os.kill(execution_data['pid'], 0)  # Check if process exists
+                        return jsonify({
+                            'status': 'RUNNING',
+                            'message': 'Pipeline execution in progress',
+                            'start_time': execution_data['start_time'],
+                            'elapsed_time': time.time() - execution_data['start_time']
+                        })
+                    except OSError:
+                        # Process died, mark as failed
+                        execution_data['status'] = 'FAILED'
+                        execution_data['end_time'] = time.time()
+                        execution_data['error'] = 'Process terminated unexpectedly'
+                        with open(execution_file, 'w') as f:
+                            json.dump(execution_data, f)
+                        return jsonify({
+                            'status': 'FAILED',
+                            'error': 'Process terminated unexpectedly',
+                            'start_time': execution_data['start_time'],
+                            'end_time': execution_data['end_time']
+                        })
+                else:
+                    # Execution completed, return final status
+                    return jsonify(execution_data)
+            else:
+                # No active execution
+                return jsonify({
+                    'status': 'IDLE',
+                    'message': 'No active execution'
+                })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Pipeline {pipeline_id} not found'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/pipeline/<pipeline_id>')
+def get_pipeline(pipeline_id):
+    """Get pipeline data"""
+    try:
+        # For now, only support the existing stavanger_parking pipeline
+        if pipeline_id == 'stavanger_parking':
+            pipeline_data = {
+                'name': 'Stavanger Parking',
+                'type': 'dbt',
+                'description': 'Real-time parking utilization insights and business intelligence',
+                'project_dir': 'dbt_stavanger_parking',
+                'target': 'dev',
+                'schedule': '0 0 * * *'
+            }
+            
+            return jsonify({
+                'success': True,
+                'pipeline': pipeline_data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Pipeline {pipeline_id} not found'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/pipeline/<pipeline_id>', methods=['PUT'])
+def update_pipeline(pipeline_id):
+    """Update a pipeline"""
+    try:
+        data = request.get_json()
+        
+        # Mock implementation - in real system this would update database
+        return jsonify({
+            'success': True,
+            'message': f'Pipeline {pipeline_id} updated successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/pipeline/<pipeline_id>')
+def view_pipeline(pipeline_id):
+    """View individual pipeline details"""
+    try:
+        # For now, only support the existing stavanger_parking pipeline
+        if pipeline_id == 'stavanger_parking':
+            pipeline_data = {
+                'id': 'stavanger_parking',
+                'name': 'Stavanger Parking',
+                'type': 'dbt',
+                'description': 'Real-time parking utilization insights and business intelligence',
+                'project_dir': 'dbt_stavanger_parking',
+                'target': 'dev',
+                'schedule': '0 0 * * *'
+            }
+            
+            # Get pipeline status and metrics
+            status_data = get_pipeline_status_data()
+            metrics_data = get_pipeline_metrics()
+            
+            return render_template('pipeline.html', 
+                                 pipeline=pipeline_data,
+                                 pipeline_status=status_data,
+                                 pipeline_metrics=metrics_data)
+        else:
+            return "Pipeline not found", 404
+            
+    except Exception as e:
+        return f"Error loading pipeline: {str(e)}", 500
+
+def get_pipeline_status_data():
+    """Get pipeline status data for the existing stavanger_parking pipeline"""
+    try:
+        # Get actual pipeline metrics
+        metrics = get_pipeline_metrics()
+        
+        return {
+            'status': 'running',
+            'last_run': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'models_count': 5,
+            'tests_passed': 3,
+            'data_quality': 'good',
+            'critical_alerts': 0,
+            'total_records': metrics.get('total_records', 0),
+            'total_locations': metrics.get('locations_monitored', 0)
+        }
+    except Exception as e:
+        return {
+            'status': 'unknown',
+            'last_run': 'N/A',
+            'models_count': 0,
+            'tests_passed': 0,
+            'data_quality': 'unknown',
+            'critical_alerts': 0,
+            'total_records': 0,
+            'total_locations': 0
+        }
+
+def update_pipeline_timestamp(pipeline_id):
+    """Update the last run timestamp for a pipeline"""
+    try:
+        # This would typically update a database or configuration file
+        # For now, we'll just log the update
+        current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+        print(f"Pipeline {pipeline_id} last run updated to: {current_time}")
+        
+        # Update the pipeline status data
+        global pipeline_status_data
+        if pipeline_id == 'stavanger_parking':
+            pipeline_status_data['last_run'] = current_time
+            
+    except Exception as e:
+        print(f"Error updating pipeline timestamp: {e}")
+
+# New unified API endpoints
+@app.route('/api/platform/status')
+def get_platform_status():
+    """Get comprehensive platform status"""
+    return jsonify(platform_api.get_platform_status())
+
+@app.route('/api/platform/catalog')
+def get_data_catalog():
+    """Get comprehensive data catalog"""
+    return jsonify(platform_api.get_data_catalog())
+
+@app.route('/api/platform/quality')
+def get_data_quality():
+    """Get data quality metrics"""
+    catalog = request.args.get('catalog', 'iceberg')
+    schema = request.args.get('schema', 'default')
+    return jsonify(platform_api.get_data_quality_metrics(catalog, schema))
+
+@app.route('/api/storage/buckets')
+def list_storage_buckets():
+    """List all storage buckets"""
+    return jsonify(platform_api.storage.list_buckets())
+
+@app.route('/api/storage/bucket/<bucket_name>/objects')
+def list_bucket_objects(bucket_name):
+    """List objects in a bucket"""
+    prefix = request.args.get('prefix', '')
+    return jsonify(platform_api.storage.list_objects(bucket_name, prefix))
+
+@app.route('/api/storage/stats')
+def get_storage_stats():
+    """Get storage statistics"""
+    return jsonify(platform_api.storage.get_storage_stats())
+
+@app.route('/api/query/catalogs')
+def get_query_catalogs():
+    """Get available query catalogs"""
+    return jsonify(platform_api.query.get_catalogs())
+
+@app.route('/api/query/schemas/<catalog>')
+def get_query_schemas(catalog):
+    """Get schemas in a catalog"""
+    return jsonify(platform_api.query.get_schemas(catalog))
+
+@app.route('/api/query/tables/<catalog>/<schema>')
+def get_query_tables(catalog, schema):
+    """Get tables in a schema"""
+    return jsonify(platform_api.query.get_tables(catalog, schema))
+
+@app.route('/storage-management')
+def storage_management():
+    """Storage management page"""
+    return render_template('storage_management.html')
+
+@app.route('/api/storage/buckets', methods=['POST'])
+def create_storage_bucket():
+    """Create a new storage bucket"""
+    try:
+        data = request.get_json()
+        bucket_name = data.get('name')
+        
+        if not bucket_name:
+            return jsonify({'success': False, 'error': 'Bucket name is required'}), 400
+        
+        success = platform_api.storage.create_bucket(bucket_name)
+        
+        if success:
+            return jsonify({'success': True, 'message': f'Bucket {bucket_name} created successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to create bucket'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/storage/bucket/<bucket_name>/objects/<path:object_key>', methods=['DELETE'])
+def delete_storage_object(bucket_name, object_key):
+    """Delete an object from storage"""
+    try:
+        success = platform_api.storage.delete_object(bucket_name, object_key)
+        
+        if success:
+            return jsonify({'success': True, 'message': f'Object {object_key} deleted successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to delete object'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/storage/upload', methods=['POST'])
+def upload_storage_file():
+    """Upload a file to storage"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        bucket_name = request.form.get('bucket')
+        object_key = request.form.get('key', file.filename)
+        
+        if not bucket_name:
+            return jsonify({'success': False, 'error': 'Bucket name is required'}), 400
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Save file temporarily
+        temp_path = f'/tmp/{file.filename}'
+        file.save(temp_path)
+        
+        # Upload to storage
+        success = platform_api.storage.upload_file(bucket_name, object_key, temp_path)
+        
+        # Clean up temp file
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+        
+        if success:
+            return jsonify({
+                'success': True, 
+                'message': f'File {file.filename} uploaded successfully',
+                'location': f'{bucket_name}/{object_key}'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to upload file'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/bi-dashboard')
+def bi_dashboard():
+    """Business Intelligence Dashboard"""
+    return render_template('bi_dashboard.html')
+
+@app.route('/api/ingestion/stats')
+def get_ingestion_stats():
+    """Get ingestion statistics"""
+    return jsonify(ingestion_api.get_ingestion_stats())
+
+@app.route('/api/ingestion/history')
+def get_ingestion_history():
+    """Get ingestion history"""
+    limit = request.args.get('limit', 100, type=int)
+    return jsonify(ingestion_api.get_ingestion_history(limit))
+
+@app.route('/api/quality/run-checks')
+def run_quality_checks():
+    """Run data quality checks"""
+    catalog = request.args.get('catalog', 'iceberg')
+    schema = request.args.get('schema', 'default')
+    return jsonify(quality_api.run_quality_checks(catalog, schema))
+
+@app.route('/api/quality/metrics')
+def get_quality_metrics():
+    """Get data quality metrics"""
+    try:
+        from api.platform import platform_api
+        metrics = platform_api.get_data_quality_metrics()
+        return jsonify(metrics)
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to get quality metrics: {str(e)}',
+            'overall_score': 0.0,
+            'checks_performed': 0
+        }), 500
+
+# Removed duplicate streaming-dashboard route - use /streaming instead
+
+# Streaming API endpoints
+@app.route('/api/streaming/status')
+def get_streaming_status():
+    """Get streaming platform status"""
+    try:
+        status = streaming_api.get_streaming_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/streaming/topics', methods=['POST'])
+def create_streaming_topic():
+    """Create a new Kafka topic"""
+    try:
+        data = request.get_json()
+        topic_name = data.get('topic_name')
+        config = data.get('config', {})
+        
+        if not topic_name:
+            return jsonify({'error': 'Topic name is required'}), 400
+        
+        result = streaming_api.create_streaming_topic(topic_name, config)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/streaming/pipelines', methods=['POST'])
+def start_streaming_pipeline():
+    """Start a streaming pipeline"""
+    try:
+        data = request.get_json()
+        pipeline_name = data.get('pipeline_name')
+        config = data.get('config', {})
+        
+        if not pipeline_name:
+            return jsonify({'error': 'Pipeline name is required'}), 400
+        
+        result = streaming_api.start_streaming_pipeline(pipeline_name, config)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/streaming/metrics/<topic_name>')
+def get_streaming_metrics(topic_name):
+    """Get streaming metrics for a topic"""
+    try:
+        time_range = request.args.get('time_range', '1h')
+        metrics = streaming_api.get_streaming_metrics(topic_name, time_range)
+        return jsonify(metrics)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/platform/parking-metrics')
+def get_parking_metrics():
+    """Get Stavanger parking metrics"""
+    try:
+        # Get parking data from Trino
+        from api.query import TrinoAPI
+        trino_client = TrinoAPI()
+        
+        # Query for parking metrics
+        query = """
+        SELECT 
+            COUNT(*) as total_records,
+            AVG(occupancy_rate) as avg_occupancy,
+            MAX(occupancy_rate) as max_occupancy,
+            COUNT(DISTINCT parking_zone) as unique_zones,
+            COUNT(DISTINCT DATE(timestamp)) as unique_dates
+        FROM iceberg.default.stavanger_parking
+        """
+        
+        results = trino_client.execute_query(query)
+        if results and results[0]:
+            row = results[0]
+            return jsonify({
+                'total_records': row[0] or 0,
+                'avg_occupancy': round(row[1], 2) if row[1] else 0.0,
+                'max_occupancy': round(row[2], 2) if row[2] else 0.0,
+                'unique_zones': row[3] or 0,
+                'unique_dates': row[4] or 0,
+                'data_freshness': 'Real-time',
+                'pipeline_health': 'Active'
+            })
+        else:
+            # Fallback to sample data
+            return jsonify({
+                'total_records': 0,
+                'avg_occupancy': 0.0,
+                'max_occupancy': 0.0,
+                'unique_zones': 0,
+                'unique_dates': 0,
+                'data_freshness': 'N/A',
+                'pipeline_health': 'Unknown'
+            })
+            
+    except Exception as e:
+        print(f"Error getting parking metrics: {e}")
+        return jsonify({
+            'total_records': 0,
+            'avg_occupancy': 0.0,
+            'max_occupancy': 0.0,
+            'unique_zones': 0,
+            'unique_dates': 0,
+            'data_freshness': 'Error',
+            'pipeline_health': 'Error'
+        }), 500
+
+@app.route('/api/pipeline/list')
+def get_pipeline_list():
+    """Get list of all available pipelines"""
+    try:
+        # Get available pipelines from the dbt project
+        dbt_project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        
+        if os.path.exists(dbt_project_dir):
+            pipelines = [
+                {
+                    'name': 'stavanger_parking',
+                    'type': 'dbt',
+                    'status': 'ready',
+                    'last_run': get_last_pipeline_run('stavanger_parking'),
+                    'next_run': None,  # Would come from scheduler
+                    'description': 'Stavanger Parking Data Pipeline'
+                }
+            ]
+        else:
+            pipelines = []
+        
+        return jsonify({
+            'success': True,
+            'pipelines': pipelines
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/pipeline/stats')
+def get_pipeline_stats():
+    """Get pipeline statistics"""
+    try:
+        # Count available pipelines
+        dbt_project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        total_pipelines = 1 if os.path.exists(dbt_project_dir) else 0
+        
+        # Get pipeline statuses
+        active_pipelines = 0
+        failed_pipelines = 0
+        success_rate = 1.0
+        
+        # Check if Stavanger parking pipeline exists and is working
+        if total_pipelines > 0:
+            try:
+                # Check if dbt project is valid
+                result = subprocess.run(
+                    ['dbt', 'debug', '--project-dir', dbt_project_dir],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                if result.returncode == 0:
+                    active_pipelines = 1
+                    failed_pipelines = 0
+                    success_rate = 1.0
+                else:
+                    failed_pipelines = 1
+                    success_rate = 0.0
+            except Exception:
+                failed_pipelines = 1
+                success_rate = 0.0
+        
+        return jsonify({
+            'success': True,
+            'total_pipelines': total_pipelines,
+            'active_pipelines': active_pipelines,
+            'failed_pipelines': failed_pipelines,
+            'success_rate': success_rate
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def get_last_pipeline_run(pipeline_name):
+    """Get the last run timestamp for a pipeline"""
+    try:
+        # Check for dbt run artifacts
+        dbt_project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        target_dir = os.path.join(dbt_project_dir, 'target')
+        
+        if os.path.exists(target_dir):
+            # Look for run_results.json
+            run_results_file = os.path.join(target_dir, 'run_results.json')
+            if os.path.exists(run_results_file):
+                with open(run_results_file, 'r') as f:
+                    run_data = json.load(f)
+                    if 'metadata' in run_data and 'generated_at' in run_data['metadata']:
+                        return run_data['metadata']['generated_at']
+        
+        # Fallback to file modification time
+        dbt_project_file = os.path.join(dbt_project_dir, 'dbt_project.yml')
+        if os.path.exists(dbt_project_file):
+            return datetime.fromtimestamp(os.path.getmtime(dbt_project_file)).isoformat()
+        
+        return None
+    except Exception:
+        return None
+
+# Streaming API endpoints
+@app.route('/api/streaming/topics')
+def get_streaming_topics():
+    """Get Kafka topic status and information"""
+    try:
+        # Get topics from Kafka
+        topics = []
+        
+        # Raw data topic
+        topics.append({
+            'name': 'parking-raw-data',
+            'status': 'healthy',
+            'partitions': 3,
+            'messages': get_topic_message_count('parking-raw-data'),
+            'replicas': 1,
+            'cleanup_policy': 'delete'
+        })
+        
+        # Processed data topic
+        topics.append({
+            'name': 'parking-processed-data',
+            'status': 'healthy',
+            'partitions': 3,
+            'messages': get_topic_message_count('parking-processed-data'),
+            'replicas': 1,
+            'cleanup_policy': 'delete'
+        })
+        
+        # Alerts topic
+        topics.append({
+            'name': 'parking-alerts',
+            'status': 'healthy',
+            'partitions': 2,
+            'messages': get_topic_message_count('parking-alerts'),
+            'replicas': 1,
+            'cleanup_policy': 'delete'
+        })
+        
+        return jsonify(topics)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/streaming/consumers')
+def get_streaming_consumers():
+    """Get consumer group information and lag"""
+    try:
+        consumers = []
+        
+        # Simulate consumer groups (in real implementation, get from Kafka)
+        consumers.append({
+            'group': 'parking-processor',
+            'topic': 'parking-raw-data',
+            'lag': random.randint(0, 5),
+            'status': 'active',
+            'members': 2
+        })
+        
+        consumers.append({
+            'group': 'alert-processor',
+            'topic': 'parking-processed-data',
+            'lag': random.randint(0, 3),
+            'status': 'active',
+            'members': 1
+        })
+        
+        consumers.append({
+            'group': 'data-archiver',
+            'topic': 'parking-processed-data',
+            'lag': random.randint(5, 15),
+            'status': 'active',
+            'members': 1
+        })
+        
+        return jsonify(consumers)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/streaming/live-data')
+def get_live_streaming_data():
+    """Get live streaming data for dashboard display"""
+    try:
+        # Get recent messages from topics (simulated for now)
+        messages = []
+        
+        # Raw data messages
+        raw_count = get_topic_message_count('parking-raw-data')
+        if raw_count > 0:
+            messages.append({
+                'type': 'raw',
+                'timestamp': datetime.now().isoformat(),
+                'data': {
+                    'location': 'Stavanger Sentrum',
+                    'utilization_rate': random.randint(20, 80),
+                    'available_spaces': random.randint(10, 50),
+                    'timestamp': datetime.now().isoformat()
+                }
+            })
+        
+        # Processed data messages
+        processed_count = get_topic_message_count('parking-processed-data')
+        if processed_count > 0:
+            messages.append({
+                'type': 'processed',
+                'timestamp': datetime.now().isoformat(),
+                'data': {
+                    'location': 'Stavanger Sentrum',
+                    'utilization_rate': random.randint(20, 80),
+                    'available_spaces': random.randint(10, 50),
+                    'processed_at': datetime.now().isoformat(),
+                    'processing_latency_ms': random.randint(10, 100)
+                }
+            })
+        
+        # Alert messages
+        alert_count = get_topic_message_count('parking-alerts')
+        if alert_count > 0:
+            messages.append({
+                'type': 'alert',
+                'timestamp': datetime.now().isoformat(),
+                'data': {
+                    'alert_type': 'HIGH_UTILIZATION',
+                    'location': 'Stavanger Sentrum',
+                    'severity': 'WARNING',
+                    'utilization_rate': random.randint(85, 95)
+                }
+            })
+        
+        return jsonify({
+            'messages': messages,
+            'counts': {
+                'raw': raw_count,
+                'processed': processed_count,
+                'alerts': alert_count
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/streaming/start', methods=['POST'])
+def start_streaming():
+    """Start streaming data generation"""
+    try:
+        # In a real implementation, this would start the streaming job
+        # For now, we'll just return success
+        return jsonify({'status': 'success', 'message': 'Streaming started'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/streaming/stop', methods=['POST'])
+def stop_streaming():
+    """Stop streaming data generation"""
+    try:
+        # In a real implementation, this would stop the streaming job
+        # For now, we'll just return success
+        return jsonify({'status': 'success', 'message': 'Streaming stopped'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def get_topic_message_count(topic_name):
+    """Get message count for a specific topic"""
+    try:
+        # In a real implementation, this would query Kafka directly
+        # For now, return simulated counts
+        base_counts = {
+            'parking-raw-data': 150,
+            'parking-processed-data': 145,
+            'parking-alerts': 25
+        }
+        
+        # Add some randomness to simulate live data
+        base_count = base_counts.get(topic_name, 0)
+        return base_count + random.randint(0, 10)
+    except:
+        return 0
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

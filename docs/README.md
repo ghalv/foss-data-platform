@@ -2,60 +2,56 @@
 
 Welcome to the comprehensive documentation for your FOSS Data Platform. This directory contains all the guides, references, and technical documentation you need to understand, operate, and extend your platform.
 
-## **📖 Documentation Index**
+## 📚 Documentation Index
 
-### **🚀 Getting Started**
-- **[Platform Service Guide](FOSS_DATA_PLATFORM_SERVICE_GUIDE.md)** - Complete guide to accessing and using all platform services
-- **[JupyterLab Integration](JUPYTERLAB_INTEGRATION.md)** - How to use JupyterLab for interactive pipeline development
+### **Getting Started**
+- **[FOSS Data Platform Service Guide](FOSS_DATA_PLATFORM_SERVICE_GUIDE.md)** - Complete guide to accessing and using all platform services
+- **[Pipeline Management Guide](PIPELINE_MANAGEMENT_GUIDE.md)** - How to manage, configure, and monitor data pipelines
 
-### **🔧 Pipeline Management**
-- **[Pipeline Management Guide](PIPELINE_MANAGEMENT_GUIDE.md)** - Comprehensive guide to managing your Stavanger Parking data pipeline
-- **[Stavanger Parking Summary](STAVANGER_PARKING_SUMMARY.md)** - Overview of your data pipeline architecture and capabilities
+### **Pipeline Management**
+- **[Stavanger Parking Summary](STAVANGER_PARKING_SUMMARY.md)** - Overview of the Stavanger Parking data pipeline
+- **[Pipeline Management Guide](PIPELINE_MANAGEMENT_GUIDE.md)** - Comprehensive guide to pipeline operations
 
-### **📊 Architecture & Design**
-- **Platform Overview** - High-level architecture and design principles
-- **Data Models** - Detailed explanation of your dbt models and transformations
-- **Service Integration** - How services communicate and integrate
-- **Iceberg Integration** - ACID transactions, schema evolution, and time travel capabilities
+### **Architecture & Design**
+- **[Real-time Streaming Implementation](REAL_TIME_STREAMING_IMPLEMENTATION.md)** - Kafka, Flink, and real-time streaming capabilities
+- **[JupyterLab Integration](JUPYTERLAB_INTEGRATION.md)** - Interactive development environment setup and usage
 
-### **🌐 Data Exploration & Analytics**
-- **Data Browser** - Interactive SQL queries and data exploration interface
-- **Trino Integration** - Distributed SQL query engine capabilities
-- **Data Visualization** - Grafana dashboards and monitoring
+### **Operations & Maintenance**
+- **[Documentation Update Summary](DOCUMENTATION_UPDATE_SUMMARY.md)** - Summary of recent documentation changes and improvements
 
-### **🛠️ Operations & Maintenance**
-- **Platform Management** - How to deploy and configure the platform
-- **Pipeline Management** - Comprehensive guide to managing data pipelines
-- **Monitoring & Alerting** - Setting up observability and alerting
-- **Troubleshooting** - Common issues and solutions
-- **Performance Tuning** - Optimization strategies and best practices
-- **[Documentation Update Summary](DOCUMENTATION_UPDATE_SUMMARY.md)** - Documentation quality and maintenance status
+### **Security & Governance**
+- *Coming soon: Security policies, access control, and compliance documentation*
 
-### **🔐 Security & Governance**
-- **Security Best Practices** - Securing your data platform
-- **Access Control** - Managing user permissions and authentication
-- **Data Governance** - Policies and procedures for data management
+### **Quick Navigation**
+- **Dashboard**: `http://localhost:5000` - Main platform overview
+- **Pipelines**: `http://localhost:5000/pipeline-management` - Pipeline management and control
+- **Data Browser**: `http://localhost:5000/data-browser` - SQL queries and data exploration
+- **Metrics**: `http://localhost:5000/metrics` - System performance metrics and monitoring
+- **Real-time Streaming**: `http://localhost:5000/streaming` - Kafka and Flink monitoring
+- **Storage Management**: `http://localhost:5000/storage-management` - MinIO bucket and file management
+- **BI Dashboard**: `http://localhost:5000/bi-dashboard` - Business intelligence and analytics
+- **Health**: `http://localhost:5000/health` - System health monitoring
 
----
+### **External Services**
+- **JupyterLab**: `http://localhost:8888` - Interactive development environment
+- **Dagster**: `http://localhost:3000` - Data orchestration and pipeline management
+- **Grafana**: `http://localhost:3001` - Metrics visualization and monitoring
+- **MinIO Console**: `http://localhost:9003` - Object storage management
+- **Portainer**: `http://localhost:9000` - Container management
+- **Prometheus**: `http://localhost:9090` - Metrics collection
+- **Trino**: `http://localhost:8080` - SQL query engine
+- **Kafka UI**: `http://localhost:8082` - Kafka cluster management
+- **Flink Dashboard**: `http://localhost:8081` - Stream processing monitoring
 
-## **🎯 Quick Navigation**
+### **Contributing**
+- *Coming soon: Development guidelines, contribution process, and code standards*
 
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| [Service Guide](FOSS_DATA_PLATFORM_SERVICE_GUIDE.md) | Platform usage and access | All users |
-| [Pipeline Management](PIPELINE_MANAGEMENT_GUIDE.md) | Pipeline operations | Data engineers |
-| [JupyterLab Integration](JUPYTERLAB_INTEGRATION.md) | Development workflow | Developers |
-| [Stavanger Parking Summary](STAVANGER_PARKING_SUMMARY.md) | Pipeline overview | Stakeholders |
-
----
-
-## **🔍 Finding What You Need**
-
-- **New to the platform?** Start with the [Service Guide](FOSS_DATA_PLATFORM_SERVICE_GUIDE.md)
-- **Managing pipelines?** Check the [Pipeline Management Guide](PIPELINE_MANAGEMENT_GUIDE.md)
-- **Developing models?** Review the [JupyterLab Integration](JUPYTERLAB_INTEGRATION.md)
-- **Understanding architecture?** Read the [Stavanger Parking Summary](STAVANGER_PARKING_SUMMARY.md)
-- **Exploring data?** Use the Data Browser from your dashboard
+### **Finding What You Need**
+- **New to the platform?** Start with [FOSS Data Platform Service Guide](FOSS_DATA_PLATFORM_SERVICE_GUIDE.md)
+- **Want to manage pipelines?** See [Pipeline Management Guide](PIPELINE_MANAGEMENT_GUIDE.md)
+- **Interested in real-time streaming?** Check [Real-time Streaming Implementation](REAL_TIME_STREAMING_IMPLEMENTATION.md)
+- **Need to explore data?** Use [Data Browser](DATA_BROWSER.md) or [Iceberg Integration](ICEBERG_INTEGRATION.md)
+- **Looking for specific service info?** Check the [Service Guide](FOSS_DATA_PLATFORM_SERVICE_GUIDE.md) for detailed port numbers and access details
 
 ---
 

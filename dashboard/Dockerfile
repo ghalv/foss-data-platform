@@ -6,7 +6,11 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     procps \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install dbt
+RUN pip install dbt-core dbt-trino
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
