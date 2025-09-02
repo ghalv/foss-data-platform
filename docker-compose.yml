@@ -95,8 +95,8 @@ services:
       - "9002:9000"
       - "9003:9001"
     environment:
-      - MINIO_ROOT_USER=admin
-      - MINIO_ROOT_PASSWORD=admin123
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-CHANGE_THIS_PASSWORD}
     volumes:
       - ./data/minio:/data
       - ./config/minio:/scripts
@@ -133,8 +133,8 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
-      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-CHANGE_THIS_PASSWORD}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
       - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
     volumes:
@@ -234,7 +234,7 @@ services:
     ports:
       - "9000:9000"
     environment:
-      - PORTAINER_ADMIN_PASSWORD=admin123
+      - PORTAINER_ADMIN_PASSWORD=${PORTAINER_ADMIN_PASSWORD:-CHANGE_THIS_PASSWORD}
       - PORTAINER_EDGE=0
       - PORTAINER_EDGE_INSECURE_POLL=0
       - PORTAINER_EDGE_ASYNC=0

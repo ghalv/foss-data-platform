@@ -414,24 +414,32 @@
                     </div>
                 `;
             } else if (block.type === 'list') {
-                blockDiv.className += ' border-warning bg-light ui-block-list';
+                const colorClass = block.color || 'warning';
+                const iconClass = colorClass === 'danger' ? 'fa-exclamation-triangle' :
+                                colorClass === 'success' ? 'fa-check-circle' :
+                                'fa-exclamation-circle';
+                blockDiv.className += ` border-${colorClass} bg-light ui-block-list`;
                 blockDiv.innerHTML = `
-                    <h6 class="mb-2 text-warning fw-bold">${block.title}</h6>
-                    <ul class="list-group">
-                        ${block.items.map(item => `<li class="list-group-item d-flex align-items-center">
-                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                            <span>${item}</span>
+                    <h6 class="mb-2 text-${colorClass} fw-bold">${block.title}</h6>
+                    <ul class="list-group list-group-flush">
+                        ${block.items.map(item => `<li class="list-group-item d-flex align-items-start bg-transparent border-0 px-0">
+                            <i class="fas ${iconClass} text-${colorClass} me-2 mt-1"></i>
+                            <span class="flex-grow-1">${item}</span>
                         </li>`).join('')}
                     </ul>
                 `;
             } else if (block.type === 'info') {
-                blockDiv.className += ` border-info bg-light`;
+                const colorClass = block.color || 'info';
+                const iconClass = colorClass === 'danger' ? 'fa-exclamation-triangle' :
+                                colorClass === 'warning' ? 'fa-exclamation-circle' :
+                                'fa-info-circle';
+                blockDiv.className += ` border-${colorClass} bg-light`;
                 blockDiv.innerHTML = `
-                    <div class="d-flex align-items-center">
-                        <i class="fas fa-info-circle text-info me-2"></i>
-                        <div>
-                            <strong>${block.title}</strong>
-                            <div class="small text-muted">${block.content}</div>
+                    <div class="d-flex align-items-start">
+                        <i class="fas ${iconClass} text-${colorClass} me-2 mt-1"></i>
+                        <div class="flex-grow-1">
+                            <strong class="text-${colorClass}">${block.title}</strong>
+                            <div class="small mt-1">${block.content}</div>
                         </div>
                     </div>
                 `;
@@ -465,6 +473,9 @@
                 clearInterval(activeProgressIntervals.get(operationId));
             }
 
+            // Do an immediate first update
+            let firstUpdate = true;
+
             const progressInterval = setInterval(async () => {
                 try {
                     const response = await fetch(`/api/chat/progress/${operationId}`);
@@ -475,6 +486,26 @@
                     }
 
                     const progressData = await response.json();
+
+                    // For the first update, ensure we show the latest progress immediately
+                    if (firstUpdate) {
+                        firstUpdate = false;
+                        // Update progress bar immediately with current progress
+                        const progressBlock = messageEl.querySelector(`[data-operation-id="${operationId}"]`);
+                        if (progressBlock) {
+                            const progressBar = progressBlock.querySelector('.progress-bar');
+                            const messageDiv = progressBlock.querySelector('.small.text-muted');
+
+                            if (progressBar && progressData.progress !== undefined) {
+                                progressBar.style.width = `${progressData.progress}%`;
+                                progressBar.setAttribute('aria-valuenow', progressData.progress);
+                            }
+
+                            if (messageDiv && progressData.message) {
+                                messageDiv.textContent = progressData.message;
+                            }
+                        }
+                    }
 
                     // Update progress UI
                     const progressBlock = messageEl.querySelector(`[data-operation-id="${operationId}"]`);
@@ -489,21 +520,60 @@
                             const progressBar = progressBlock.querySelector('.progress-bar');
                             const messageDiv = progressBlock.querySelector('.small.text-muted');
 
+                            // Force completion state immediately
+                            if (progressBar) {
+                                progressBar.style.width = '100%';
+                                progressBar.setAttribute('aria-valuenow', 100);
+                                progressBar.className = `progress-bar bg-${progressData.success ? 'success' : 'danger'}`;
+                                // Clear any transition animations
+                                progressBar.style.transition = 'none';
+                            }
+
                             if (statusBadge) {
                                 const isSuccess = progressData.success;
                                 statusBadge.textContent = isSuccess ? '✅ Done' : '❌ Failed';
                                 statusBadge.className = `badge bg-${isSuccess ? 'success' : 'danger'}`;
                             }
 
-                            if (progressBar) {
-                                progressBar.style.width = '100%';
-                                progressBar.setAttribute('aria-valuenow', 100);
-                                progressBar.className = `progress-bar bg-${progressData.success ? 'success' : 'danger'}`;
-                            }
+                            // Ensure all progress elements are updated immediately
+                            setTimeout(() => {
+                                if (progressBar) {
+                                    progressBar.style.width = '100%';
+                                    progressBar.setAttribute('aria-valuenow', 100);
+                                    progressBar.className = `progress-bar bg-${progressData.success ? 'success' : 'danger'}`;
+                                }
+                            }, 50);
 
                             if (messageDiv) {
-                                messageDiv.textContent = progressData.success ? 'Operation completed successfully' : 'Operation failed - see details below';
+                                if (progressData.success) {
+                                    messageDiv.textContent = 'Operation completed successfully';
+                                    messageDiv.style.color = '#28a745';
+                                } else {
+                                    messageDiv.textContent = 'Operation failed - see detailed error information in the card below';
+                                    messageDiv.style.color = '#dc3545';
+                                    messageDiv.style.fontWeight = 'bold';
+                                }
                             }
+
+                            // Ensure error details are displayed prominently in the UI blocks
+                            if (!progressData.success && progressData.ui_blocks && progressData.ui_blocks.length > 0) {
+                                // Add a prominent error summary at the top
+                                const errorSummary = {
+                                    type: 'info',
+                                    title: '❌ Operation Failed',
+                                    content: 'Detailed error information is shown below. Please review the failed tests and error analysis for troubleshooting steps.',
+                                    color: 'danger'
+                                };
+                                progressData.ui_blocks.unshift(errorSummary);
+                            }
+
+                            // Force a final update to ensure all elements are updated
+                            setTimeout(() => {
+                                if (progressBar && progressBar.style.width !== '100%') {
+                                    progressBar.style.width = '100%';
+                                    progressBar.setAttribute('aria-valuenow', 100);
+                                }
+                            }, 100);
 
                             // Update message with final results
                             const textEl = messageEl.querySelector('.message');
@@ -584,7 +654,26 @@
                             }
 
                             if (messageDiv) {
-                                messageDiv.textContent = 'Lost connection to server. Please refresh and try again.';
+                                messageDiv.textContent = '⚠️ Connection lost - operation may still be running';
+                                messageDiv.style.color = '#ffc107';
+                                messageDiv.style.fontWeight = 'bold';
+                            }
+
+                            // Add troubleshooting information within the card
+                            const cardBody = progressBlock.closest('.card-body');
+                            if (cardBody && !cardBody.querySelector('.error-details')) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'error-details mt-2 p-2 bg-light rounded border';
+                                errorDiv.innerHTML = `
+                                    <small class="text-muted">
+                                        <strong>🔍 Troubleshooting Steps:</strong><br>
+                                        • Check server logs: <code>docker-compose logs dashboard</code><br>
+                                        • Verify operation status manually<br>
+                                        • Try refreshing the page<br>
+                                        • Contact administrator if issues persist
+                                    </small>
+                                `;
+                                cardBody.appendChild(errorDiv);
                             }
                         }
                     }
@@ -593,30 +682,55 @@
 
             activeProgressIntervals.set(operationId, progressInterval);
 
-            // Auto-cleanup after 10 minutes with timeout warning
-            let timeoutWarningShown = false;
-            setTimeout(() => {
+            // Set a timeout for the operation (10 minutes = 600,000ms)
+            const operationTimeout = setTimeout(() => {
                 if (activeProgressIntervals.has(operationId)) {
-                    clearInterval(activeProgressIntervals.get(operationId));
+                    console.warn(`Operation ${operationId} timed out`);
+                    clearInterval(progressInterval);
                     activeProgressIntervals.delete(operationId);
 
-                    // Show timeout message
+                    // Update UI to show timeout
                     const progressBlock = messageEl.querySelector(`[data-operation-id="${operationId}"]`);
                     if (progressBlock) {
                         const statusBadge = progressBlock.querySelector('.badge');
                         const messageDiv = progressBlock.querySelector('.small.text-muted');
+                        const progressBar = progressBlock.querySelector('.progress-bar');
 
                         if (statusBadge) {
-                            statusBadge.textContent = '⏱️ Timeout';
+                            statusBadge.textContent = '⏰ Timeout';
                             statusBadge.className = 'badge bg-warning';
                         }
 
                         if (messageDiv) {
-                            messageDiv.textContent = 'Operation timed out after 10 minutes. Please try again.';
+                            messageDiv.textContent = '⚠️ Operation timed out - may still be running in background';
+                            messageDiv.style.color = '#ffc107';
+                            messageDiv.style.fontWeight = 'bold';
+                        }
+
+                        if (progressBar) {
+                            progressBar.style.width = '100%';
+                            progressBar.className = 'progress-bar bg-warning';
+                        }
+
+                        // Add timeout troubleshooting info
+                        const cardBody = progressBlock.closest('.card-body');
+                        if (cardBody && !cardBody.querySelector('.timeout-details')) {
+                            const timeoutDiv = document.createElement('div');
+                            timeoutDiv.className = 'timeout-details mt-2 p-2 bg-warning bg-opacity-10 rounded border border-warning';
+                            timeoutDiv.innerHTML = `
+                                <small class="text-muted">
+                                    <strong>⏰ Operation Timeout:</strong><br>
+                                    • Long-running operations may continue in background<br>
+                                    • Check server status: <code>docker-compose ps</code><br>
+                                    • Monitor logs: <code>docker-compose logs -f dashboard</code><br>
+                                    • Try the operation again if needed
+                                </small>
+                            `;
+                            cardBody.appendChild(timeoutDiv);
                         }
                     }
                 }
-            }, 600000); // 10 minutes
+            }, 600000); // 10 minutes timeout
         }
 
         async function sendMessage() {
@@ -664,6 +778,23 @@
                     // Handle long-running operations with progress tracking
                     if (data.operation_id) {
                         startProgressTracking(data.operation_id, messageEl);
+
+                        // For fast operations, do an immediate progress check
+                        setTimeout(() => {
+                            fetch(`/api/chat/progress/${data.operation_id}`)
+                                .then(response => response.json())
+                                .then(progressData => {
+                                    const progressBlock = messageEl.querySelector(`[data-operation-id="${data.operation_id}"]`);
+                                    if (progressBlock && progressData.progress !== undefined) {
+                                        const progressBar = progressBlock.querySelector('.progress-bar');
+                                        if (progressBar) {
+                                            progressBar.style.width = `${progressData.progress}%`;
+                                            progressBar.setAttribute('aria-valuenow', progressData.progress);
+                                        }
+                                    }
+                                })
+                                .catch(err => console.log('Immediate progress check failed:', err));
+                        }, 500);
                     }
                 } else {
                     appendMessage('assistant', 'Error: ' + (data.error || 'Unknown error'), undefined);
