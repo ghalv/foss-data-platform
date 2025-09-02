@@ -427,6 +427,7 @@
                             <span class="flex-grow-1">${item}</span>
                         </li>`).join('')}
                     </ul>
+                    <div style="margin-bottom: 1rem;"></div>
                 `;
             } else if (block.type === 'info') {
                 const colorClass = block.color || 'info';
@@ -434,12 +435,20 @@
                                 colorClass === 'warning' ? 'fa-exclamation-circle' :
                                 'fa-info-circle';
                 blockDiv.className += ` border-${colorClass} bg-light`;
+                let debugHtml = '';
+                if (block.debug) {
+                    debugHtml = `<div class="mt-2 p-2 bg-dark text-light rounded small font-monospace" style="font-size: 0.75rem;">
+                        <strong>🔧 Debug:</strong><br>
+                        ${Array.isArray(block.debug) ? block.debug.join('<br>') : block.debug}
+                    </div>`;
+                }
                 blockDiv.innerHTML = `
                     <div class="d-flex align-items-start">
                         <i class="fas ${iconClass} text-${colorClass} me-2 mt-1"></i>
                         <div class="flex-grow-1">
                             <strong class="text-${colorClass}">${block.title}</strong>
                             <div class="small mt-1">${block.content}</div>
+                            ${debugHtml}
                         </div>
                     </div>
                 `;
@@ -549,7 +558,7 @@
                                     messageDiv.textContent = 'Operation completed successfully';
                                     messageDiv.style.color = '#28a745';
                                 } else {
-                                    messageDiv.textContent = 'Operation failed - see detailed error information in the card below';
+                                    messageDiv.textContent = 'Operation failed - detailed error information shown below';
                                     messageDiv.style.color = '#dc3545';
                                     messageDiv.style.fontWeight = 'bold';
                                 }
@@ -565,13 +574,40 @@
                                     color: 'danger'
                                 };
                                 progressData.ui_blocks.unshift(errorSummary);
+
+                                // Add specific error details if available
+                                if (progressData.error_details) {
+                                    progressData.ui_blocks.splice(1, 0, {
+                                        type: 'info',
+                                        title: '🔍 Error Details',
+                                        content: progressData.error_details,
+                                        color: 'warning'
+                                    });
+                                }
+                            } else if (!progressData.success) {
+                                // If no UI blocks, create a basic error block
+                                progressData.ui_blocks = [{
+                                    type: 'info',
+                                    title: '❌ Operation Failed',
+                                    content: progressData.error_details || 'The operation failed. Please check the server logs for more details.',
+                                    color: 'danger'
+                                }];
                             }
 
                             // Force a final update to ensure all elements are updated
                             setTimeout(() => {
-                                if (progressBar && progressBar.style.width !== '100%') {
-                                    progressBar.style.width = '100%';
-                                    progressBar.setAttribute('aria-valuenow', 100);
+                                if (progressBar) {
+                                    if (progressBar.style.width !== '100%') {
+                                        progressBar.style.width = '100%';
+                                        progressBar.setAttribute('aria-valuenow', 100);
+                                    }
+
+                                    // Remove animation for failed operations to stop the spinning effect
+                                    if (!progressData.success) {
+                                        progressBar.style.animation = 'none';
+                                        // Add a subtle pulse effect instead
+                                        progressBar.style.boxShadow = '0 0 10px rgba(220, 53, 69, 0.5)';
+                                    }
                                 }
                             }, 100);
 
@@ -758,7 +794,13 @@
                 if (!res.ok) {
                     hideTyping();
                     const errText = await res.text();
-                    appendMessage('assistant', `HTTP ${res.status}: ${errText.substring(0, 200)}`, undefined);
+                    const errorBlocks = [{
+                        type: 'info',
+                        title: '❌ Request Error',
+                        content: `HTTP ${res.status}: ${errText.substring(0, 200)}`,
+                        color: 'danger'
+                    }];
+                    appendMessage('assistant', 'An error occurred while processing your request.', errorBlocks);
                     return;
                 }
                 let data;
@@ -767,7 +809,13 @@
                 } catch (e) {
                     hideTyping();
                     const raw = await res.text();
-                    appendMessage('assistant', `Non-JSON response: ${raw.substring(0, 200)}`, undefined);
+                    const errorBlocks = [{
+                        type: 'info',
+                        title: '❌ Response Error',
+                        content: `Invalid response format: ${raw.substring(0, 200)}`,
+                        color: 'warning'
+                    }];
+                    appendMessage('assistant', 'Received an invalid response from the server.', errorBlocks);
                     return;
                 }
                 hideTyping();
@@ -797,7 +845,13 @@
                         }, 500);
                     }
                 } else {
-                    appendMessage('assistant', 'Error: ' + (data.error || 'Unknown error'), undefined);
+                    const errorBlocks = [{
+                        type: 'info',
+                        title: '❌ Processing Error',
+                        content: data.error || 'Unknown error occurred',
+                        color: 'danger'
+                    }];
+                    appendMessage('assistant', 'An error occurred while processing your request.', errorBlocks);
                 }
             }
             try {
@@ -809,7 +863,13 @@
                     await doRequest();
                 } catch (e2) {
                     hideTyping();
-                    appendMessage('assistant', 'Network error: ' + (e2.message || 'request failed'), undefined);
+                    const errorBlocks = [{
+                        type: 'info',
+                        title: '🔌 Network Error',
+                        content: `Connection failed: ${e2.message || 'Network request failed'}`,
+                        color: 'warning'
+                    }];
+                    appendMessage('assistant', 'Unable to connect to the server. Please check your connection.', errorBlocks);
                 }
             } finally {
                 isThinking = false;

@@ -46,7 +46,7 @@ Raw Data (OpenCom.no) → Staging → Intermediate → Marts → Business Intell
 ### **Installation**
 ```bash
 # Activate virtual environment
-source dbt_env/bin/activate
+source ../.venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt

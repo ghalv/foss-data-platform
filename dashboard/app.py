@@ -811,13 +811,40 @@ def run_tests():
                 }]
             }), 400
         
-        result = subprocess.run(
-            ['dbt', 'test', '--target', 'dev'],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
+        # Run dbt test command - try direct execution first, fallback to container exec
+        try:
+            result = subprocess.run(
+                ['dbt', 'test', '--target', 'dev'],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+        except FileNotFoundError:
+            # If dbt not found, try running via Docker container
+            import os
+            container_name = os.environ.get('HOSTNAME', 'dashboard')
+            try:
+                result = subprocess.run(
+                    ['docker', 'exec', container_name, 'dbt', 'test', '--target', 'dev'],
+                    cwd=project_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=300
+                )
+            except Exception as docker_error:
+                return jsonify({
+                    'success': False,
+                    'output': '',
+                    'error': f'Failed to run dbt: {str(docker_error)}',
+                    'tests_passed': False,
+                    'results': [{
+                        'command': 'dbt test --target dev',
+                        'success': False,
+                        'output': '',
+                        'error': f'Both direct and container execution failed: {str(docker_error)}'
+                    }]
+                }), 500
         # After test completes, persist canonical summary
         try:
             ts = get_last_dbt_test_failures(project_dir=project_dir)
@@ -1570,24 +1597,6 @@ def run_specific_pipeline(pipeline_id):
         }), 500
 
 @app.route('/api/pipeline/<pipeline_id>/status')
-def get_pipeline_status(pipeline_id):
-    """Get status of a specific pipeline"""
-    try:
-        # For now, only support the existing stavanger_parking pipeline
-        if pipeline_id == 'stavanger_parking':
-            return jsonify(get_pipeline_status_data())
-        else:
-            return jsonify({
-                'success': False,
-                'error': f'Pipeline {pipeline_id} not found'
-            }), 404
-            
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
 @app.route('/api/pipeline/<pipeline_id>/execution-status', methods=['GET'])
 def get_pipeline_execution_status(pipeline_id):
     """Get real-time execution status for a specific pipeline"""
@@ -2726,21 +2735,42 @@ def run_test_operation(operation_id, intents):
             if test_resp.status_code == 200:
                 tj = test_resp.json()
                 ok = tj.get('tests_passed', False)
+                error_message = tj.get('error', '')
+
+                # Even if tests_passed is True, check for actual failures in output
+                # dbt can return exit code 0 but still have failed tests
+                if ok and tj.get('output', ''):
+                    output_lower = tj['output'].lower()
+                    if 'fail' in output_lower or 'error' in output_lower:
+                        # Check for actual failure indicators in output
+                        fail_count = output_lower.count('fail') + output_lower.count('error')
+                        if fail_count > 0:
+                            ok = False
+                            error_message = f"Found {fail_count} test failures/errors despite successful exit code"
+
+                # If we have error output, something went wrong
+                if tj.get('error') and tj['error'].strip():
+                    ok = False
+                    if not error_message:
+                        error_message = tj['error']
             else:
                 ok = False
-                print(f"Test API returned status {test_resp.status_code}")
+                error_message = f"API returned HTTP {test_resp.status_code}: {test_resp.text[:200]}"
+                print(f"Test API returned status {test_resp.status_code}: {error_message}")
         except requests.exceptions.Timeout:
             ok = False
+            error_message = "Test operation timed out after 5 minutes"
             print("Test operation timed out")
         except Exception as e:
             ok = False
-            error_message = str(e)
+            error_message = f"Test operation failed: {str(e)}"
             print(f"Test operation failed: {error_message}")
 
         # Update progress: Completed
         progress_data.update({
             'message': 'Tests completed, processing results...',
-            'progress': 90
+            'progress': 90,
+            'error_details': error_message if not ok else None
         })
         with open(progress_file, 'w') as f:
             json.dump(progress_data, f)
@@ -2748,18 +2778,23 @@ def run_test_operation(operation_id, intents):
         if ok:
             result = {
                 'success': True,
-                'reply': 'Tests completed successfully!',
+                'reply': 'Tests completed successfully! All data quality checks passed.',
                 'ui_blocks': [{
                     'type': 'metric',
                     'title': 'Test Results',
                     'value': '✅ All Passed',
+                    'color': 'success'
+                }, {
+                    'type': 'info',
+                    'title': '🎉 Success',
+                    'content': 'All dbt tests passed successfully. Your data pipeline is healthy and all quality checks are satisfied.',
                     'color': 'success'
                 }]
             }
         else:
             result = {
                 'success': False,
-                'reply': 'Some tests failed. Detailed error information is shown in the card below.',
+                'reply': f'Some tests failed. {error_message}',
                 'ui_blocks': [{
                     'type': 'metric',
                     'title': 'Test Results',
@@ -2769,12 +2804,27 @@ def run_test_operation(operation_id, intents):
             }
 
             # Add error details for failed operations
-            if 'error_message' in locals():
+            if 'error_message' in locals() and error_message:
+                debug_info = []
+                if 'tj' in locals():
+                    debug_info.append(f"API Response: {tj.get('success', 'unknown')}")
+                    debug_info.append(f"Output length: {len(tj.get('output', ''))}")
+                    debug_info.append(f"Error length: {len(tj.get('error', ''))}")
+
                 result['ui_blocks'].append({
                     'type': 'info',
                     'title': '❌ Operation Error',
                     'content': f'The test operation encountered an error: {error_message}',
-                    'color': 'danger'
+                    'color': 'danger',
+                    'debug': debug_info
+                })
+
+                # Add troubleshooting tips for failed tests
+                result['ui_blocks'].append({
+                    'type': 'info',
+                    'title': '🔧 Troubleshooting Tips',
+                    'content': '• Check the failed tests table above for specific error details\n• Run `dbt test --target dev` manually to see full output\n• Verify data sources are properly configured\n• Check database connectivity and permissions',
+                    'color': 'info'
                 })
 
         # Get detailed test results from the API response
@@ -4022,12 +4072,15 @@ def post_process_formatting(text):
     text = re.sub(r'(minio|kafka|flink|trino|grafana|jupyter[^,]*),\s+', r'\1\n', text, flags=re.IGNORECASE)
 
     # Fix missing line breaks after service names at end of lists
-    text = re.sub(r'(minio|kafka|flink|trino|grafana|jupyter)\s+([A-Z])', r'\1\n\n\2', text, flags=re.IGNORECASE)
+    text = re.sub(r'(minio|kafka|flink|trino|grafana|jupyter|zookeeper|postgres|redis)\s+([A-Z])', r'\1\n\n\2', text, flags=re.IGNORECASE)
 
     # Fix missing line breaks after common list patterns
     text = re.sub(r'(\w+)\s+(appears|seems|looks|is)\s+healthy', r'\1\n\n\2 healthy', text, flags=re.IGNORECASE)
     text = re.sub(r'(\w+)\s+(has|have)\s+issues', r'\1\n\n\2 issues', text, flags=re.IGNORECASE)
     text = re.sub(r'(\w+)\s+(needs|require)\s+attention', r'\1\n\n\2 attention', text, flags=re.IGNORECASE)
+
+    # Fix specific pattern: "minio These issues" -> "minio\n\nThese issues"
+    text = re.sub(r'(minio|kafka|flink|trino|grafana|jupyter|zookeeper|postgres|redis)\s+(These|The|This)', r'\1\n\n\2', text, flags=re.IGNORECASE)
 
     # Fix missing line breaks after numbers in lists
     text = re.sub(r'(\d+)\.\s*([A-Z])', r'\1.\n\n\2', text)
@@ -4104,11 +4157,6 @@ def _resolve_ckan_parking_json_url() -> str:
 
 
 @lru_cache(maxsize=1)
-def _get_openai_client(api_key: str):
-    from openai import OpenAI  # lazy import
-    return OpenAI(api_key=api_key)
-
-
 def get_last_dbt_test_failures(project_dir: str = 'dbt_stavanger_parking'):
     """Parse dbt artifacts to summarize failed tests, if any."""
     try:
@@ -4152,65 +4200,6 @@ def get_last_dbt_test_failures(project_dir: str = 'dbt_stavanger_parking'):
 
 # --- Unified events store (JSONL) ---
 EVENTS_PATH = '/tmp/pipeline_events.jsonl'
-
-
-def write_event(event: dict) -> None:
-    try:
-        enriched = {
-            **event,
-            'timestamp': datetime.now().isoformat()
-        }
-        with open(EVENTS_PATH, 'a') as f:
-            f.write(json.dumps(enriched) + "\n")
-    except Exception:
-        pass
-
-
-def read_recent_events(limit: int = 20, pipeline_id: str | None = None) -> list[dict]:
-    try:
-        if not os.path.exists(EVENTS_PATH):
-            return []
-        with open(EVENTS_PATH, 'r') as f:
-            lines = f.readlines()
-        records = []
-        for line in lines[-limit:]:  # Get last N records
-            try:
-                record = json.loads(line.strip())
-                if pipeline_id is None or record.get('pipeline_id') == pipeline_id:
-                    records.append(record)
-            except json.JSONDecodeError:
-                continue
-        return records
-    except Exception:
-        return []
-
-
-def _resolve_ckan_parking_json_url() -> str:
-    """Discover the JSON resource URL via CKAN package_show if not explicitly configured."""
-    try:
-        # Try the CKAN API to get the JSON resource URL
-        package_show_url = "https://opencom.no/api/3/action/package_show"
-        params = {'id': 'stavanger-parkering'}
-        response = requests.get(package_show_url, params=params, timeout=10)
-
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('success') and 'result' in data:
-                resources = data['result'].get('resources', [])
-                # Look for JSON resource
-                for resource in resources:
-                    if resource.get('format', '').upper() == 'JSON':
-                        json_url = resource.get('url')
-                        if json_url:
-                            print(f"Resolved parking JSON URL via CKAN: {json_url}")
-                            return json_url
-
-        print("Could not resolve parking JSON URL via CKAN, using fallback")
-        return "https://opencom.no/dataset/stavanger-parkering/resource/12345678-1234-1234-1234-123456789012/download/stavanger-parkering.json"
-
-    except Exception as e:
-        print(f"Error resolving CKAN parking URL: {e}")
-        return "https://opencom.no/dataset/stavanger-parkering/resource/12345678-1234-1234-1234-123456789012/download/stavanger-parkering.json"
 
 
 # Corrupted function removed - using correct implementation below

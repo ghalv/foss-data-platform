@@ -216,7 +216,7 @@ services:
     volumes:
       - ./dashboard:/app
       - ./dbt_stavanger_parking:/app/dbt_stavanger_parking
-      - ./dbt_env:/app/dbt_env
+      - ./.venv:/app/.venv
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro

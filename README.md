@@ -1,4 +1,4 @@
-# FOSS Data Platform
+# FOSS Data PlatformExce
 
 A modern, lean, and high-performing open-source data platform built with best-in-class FOSS tools.
 
