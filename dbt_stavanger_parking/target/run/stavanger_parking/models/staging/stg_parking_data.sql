@@ -6,43 +6,44 @@
     
 
 with source as (
-    select * from "memory"."default_raw_data"."raw_parking_data"
+    -- Live seed from ingestion
+    select * from memory.default_raw_data.live_parking
 ),
 
 staged as (
     select
-        -- Primary key
-        id as parking_record_id,
-        
+        -- Primary key (synthetic as live seed lacks id)
+        row_number() over (order by fetched_at, name) as parking_record_id,
+
         -- Timestamps
-        timestamp as recorded_at,
-        date(timestamp) as recorded_date,
-        extract(hour from timestamp) as recorded_hour,
-        extract(dow from timestamp) as recorded_day_of_week,
-        extract(month from timestamp) as recorded_month,
-        extract(year from timestamp) as recorded_year,
-        
+        try_cast(fetched_at as timestamp) as recorded_at,
+        date(try_cast(fetched_at as timestamp)) as recorded_date,
+        extract(hour from try_cast(fetched_at as timestamp)) as recorded_hour,
+        extract(dow from try_cast(fetched_at as timestamp)) as recorded_day_of_week,
+        extract(month from try_cast(fetched_at as timestamp)) as recorded_month,
+        extract(year from try_cast(fetched_at as timestamp)) as recorded_year,
+
         -- Location information
-        location as parking_location,
-        parking_type,
-        zone as parking_zone,
-        
-        -- Capacity and occupancy
-        capacity as total_capacity,
-        occupancy as current_occupancy,
-        available_spaces,
-        utilization_rate,
-        
-        -- Pricing
-        price_per_hour,
-        
+        name as parking_location,
+        cast(null as varchar) as parking_type,
+        cast(null as varchar) as parking_zone,
+
+        -- Capacity and occupancy (capacity unknown; we only have available)
+        cast(null as integer) as total_capacity,
+        cast(null as integer) as current_occupancy,
+        try_cast(available_spaces as integer) as available_spaces,
+        cast(null as double) as utilization_rate,
+
+        -- Pricing (unknown)
+        cast(null as double) as price_per_hour,
+
         -- Business logic
-        is_peak_hour,
-        
+        cast(null as integer) as is_peak_hour,
+
         -- Metadata
         current_timestamp as _loaded_at,
         'staging' as _model_type
-        
+
     from source
 ),
 

@@ -2,3 +2,4 @@ load_from:
   - python_file:
       relative_path: "pipelines.py"
       working_directory: "."
+      attribute: "defs"

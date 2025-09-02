@@ -1,4 +1,6 @@
 Flask==2.3.3
-requests==2.31.0
+requests==2.32.4
 boto3==1.34.0
 psutil==5.9.6
+openai>=1.40.0
+PyYAML==6.0.2

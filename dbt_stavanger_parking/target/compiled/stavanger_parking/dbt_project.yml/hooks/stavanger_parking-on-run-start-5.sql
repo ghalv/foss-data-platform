@@ -1,0 +1,1 @@
+CREATE SCHEMA IF NOT EXISTS memory.default_marts_marketing

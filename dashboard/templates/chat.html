@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - FOSS Data Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .chat-container { height: 65vh; overflow-y: auto; background: #f8f9fa; border-radius: 0.5rem; }
+        .message { max-width: 80%; }
+        .message.user { background: #0d6efd; color: #fff; border-radius: 1rem 1rem 0.25rem 1rem; }
+        .message.assistant { background: #ffffff; border: 1px solid #e9ecef; border-radius: 1rem 1rem 1rem 0.25rem; }
+        .chat-input { border-radius: 2rem; }
+        .chat-actions button { border-radius: 2rem; }
+        /* Typing dots animation */
+        .typing-dots { display: inline-flex; gap: 6px; align-items: center; }
+        .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: #adb5bd; opacity: 0.7; animation: typingBounce 1.2s infinite ease-in-out; }
+        .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.6; }
+            40% { transform: translateY(-4px); opacity: 1; }
+        }
+    </style>
+    </head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/"><i class="fas fa-database"></i> FOSS Data Platform</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a class="nav-link" href="/pipeline-management"><i class="fas fa-cogs"></i> Pipelines</a>
+                <a class="nav-link" href="/data-browser"><i class="fas fa-search"></i> Data</a>
+                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+                <a class="nav-link active" href="/chat"><i class="fas fa-comments"></i> Chat</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <h1 class="display-5"><i class="fas fa-comments text-primary"></i> Chat</h1>
+                <p class="lead text-muted">Ask the assistant to manage pipelines, query data, or check system status.</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div id="chat" class="chat-container p-3 mb-3 border"></div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="input-group rounded-pill overflow-hidden">
+                    <input id="chatInput" class="form-control chat-input border-0" type="text" placeholder="Type a message (e.g., 'Run the Stavanger Parking pipeline')" />
+                    <button id="sendBtn" class="btn btn-primary"><i class="fas fa-paper-plane me-1"></i> Send</button>
+                </div>
+            </div>
+        </div>
+
+        
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
+    <script>
+        const chatEl = document.getElementById('chat');
+        const inputEl = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const clearBtn = null;
+        const history = [];
+        let isThinking = false;
+
+        function updateSendState() {
+            const hasText = inputEl.value.trim().length > 0;
+            const shouldEnable = hasText && !isThinking;
+            sendBtn.disabled = !shouldEnable;
+        }
+
+        function appendMessage(role, text) {
+            const row = document.createElement('div');
+            row.className = 'd-flex mb-2 ' + (role === 'user' ? 'justify-content-end' : 'justify-content-start');
+            const bubble = document.createElement('div');
+            bubble.className = 'p-2 message ' + (role === 'user' ? 'user' : 'assistant');
+            if (role === 'assistant') {
+                try {
+                    const html = marked.parse(text || '');
+                    bubble.innerHTML = DOMPurify.sanitize(html);
+                } catch (e) {
+                    bubble.textContent = text;
+                }
+            } else {
+                bubble.textContent = text;
+            }
+            row.appendChild(bubble);
+            chatEl.appendChild(row);
+            chatEl.scrollTop = chatEl.scrollHeight;
+            return row; // return element for optional later updates
+        }
+
+        let typingRow = null;
+        function showTyping() {
+            if (typingRow) return;
+            typingRow = document.createElement('div');
+            typingRow.className = 'd-flex mb-2 justify-content-start';
+            const bubble = document.createElement('div');
+            bubble.className = 'p-2 message assistant';
+            bubble.innerHTML = '<div class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+            typingRow.appendChild(bubble);
+            chatEl.appendChild(typingRow);
+            chatEl.scrollTop = chatEl.scrollHeight;
+        }
+        function hideTyping() {
+            if (typingRow && typingRow.parentNode) typingRow.parentNode.removeChild(typingRow);
+            typingRow = null;
+        }
+
+        async function sendMessage() {
+            if (isThinking) return; // block while processing
+            const text = inputEl.value.trim();
+            if (!text) return;
+            appendMessage('user', text);
+            history.push({ role: 'user', content: text });
+            inputEl.value = '';
+            isThinking = true;
+            updateSendState();
+            showTyping();
+            async function doRequest() {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30000);
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: text,
+                        messages: history.slice(-10)
+                    }),
+                    signal: controller.signal
+                }).finally(() => clearTimeout(timeout));
+                if (!res.ok) {
+                    hideTyping();
+                    const errText = await res.text();
+                    appendMessage('assistant', `HTTP ${res.status}: ${errText.substring(0, 200)}`);
+                    return;
+                }
+                let data;
+                try {
+                    data = await res.json();
+                } catch (e) {
+                    hideTyping();
+                    const raw = await res.text();
+                    appendMessage('assistant', `Non-JSON response: ${raw.substring(0, 200)}`);
+                    return;
+                }
+                hideTyping();
+                if (data.success) {
+                    appendMessage('assistant', data.reply);
+                    history.push({ role: 'assistant', content: data.reply });
+                } else {
+                    appendMessage('assistant', 'Error: ' + (data.error || 'Unknown error'));
+                }
+            }
+            try {
+                await doRequest();
+            } catch (e) {
+                // quick retry once after brief backoff
+                try {
+                    await new Promise(r => setTimeout(r, 500));
+                    await doRequest();
+                } catch (e2) {
+                    hideTyping();
+                    appendMessage('assistant', 'Network error: ' + (e2.message || 'request failed'));
+                }
+            } finally {
+                isThinking = false;
+                updateSendState();
+                inputEl.focus();
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!isThinking) sendMessage();
+            }
+        });
+        inputEl.addEventListener('input', () => updateSendState());
+        // no clear button
+
+        // Warm welcome message
+        appendMessage('assistant', 'Hi! I can help you manage pipelines, query data, and check health. Try: "Run the Stavanger Parking pipeline".');
+
+        // Autofocus input on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            inputEl.focus();
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+

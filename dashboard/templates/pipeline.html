@@ -46,6 +46,7 @@
                 <a class="nav-link active" href="/pipeline-management"><i class="fas fa-cogs"></i> Pipelines</a>
                 <a class="nav-link" href="/data-browser"><i class="fas fa-search"></i> Data</a>
                 <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+                <a class="nav-link" href="/chat"><i class="fas fa-comments"></i> Chat</a>
             </div>
         </div>
     </nav>
@@ -59,6 +60,24 @@
                     Stavanger Parking Pipeline
                 </h1>
                 <p class="lead text-muted">Real-time parking utilization insights and business intelligence</p>
+            </div>
+        </div>
+
+        <!-- Recent Pipeline Events -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-exclamation-circle"></i> Recent Events
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <ul id="eventsList" class="list-unstyled mb-0 small text-muted">
+                            <li>Loading events…</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -907,6 +926,28 @@
                     }
                 }
             });
+
+            // Load recent events
+            fetch('/api/errors/recent?pipeline=stavanger_parking&limit=10')
+              .then(r => r.json())
+              .then(data => {
+                const ul = document.getElementById('eventsList');
+                ul.innerHTML = '';
+                const events = data.events || [];
+                if (!events.length) {
+                  ul.innerHTML = '<li>No recent events.</li>';
+                  return;
+                }
+                events.forEach(e => {
+                  const li = document.createElement('li');
+                  li.textContent = `[${e.type || 'event'}] ${e.status || ''} • tests_failed=${e.failed_count ?? 0} • ${e.timestamp || ''}`;
+                  ul.appendChild(li);
+                });
+              })
+              .catch(() => {
+                const ul = document.getElementById('eventsList');
+                ul.innerHTML = '<li>Failed to load events.</li>';
+              });
         });
     </script>
 </body>

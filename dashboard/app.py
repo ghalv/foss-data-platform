@@ -21,9 +21,61 @@ from api.ingestion import ingestion_api
 from api.quality import quality_api
 from api.streaming import streaming_api
 import random
+from functools import lru_cache
+import csv
+import yaml
 
 
 app = Flask(__name__)
+# Live data source configuration
+PARKING_JSON_URL = os.environ.get('PARKING_JSON_URL', '').strip()
+CKAN_BASE = os.environ.get('CKAN_BASE', 'https://opencom.no').rstrip('/')
+PARKING_DATASET_ID = os.environ.get('PARKING_DATASET_ID', 'stavanger-parkering').strip()
+
+# Pipelines config paths
+PIPELINES_DIR = os.path.join(os.getcwd(), 'config', 'pipelines')
+PIPELINES_REGISTRY = os.path.join(PIPELINES_DIR, 'registry.yaml')
+PIPELINES_OVERRIDES = os.path.join(PIPELINES_DIR, 'overrides.local.yaml')
+
+def load_pipeline_configs() -> dict:
+    registry = {}
+    try:
+        with open(PIPELINES_REGISTRY, 'r') as f:
+            registry = yaml.safe_load(f) or {}
+    except Exception:
+        registry = {}
+    # Load overrides
+    try:
+        if os.path.exists(PIPELINES_OVERRIDES):
+            with open(PIPELINES_OVERRIDES, 'r') as f:
+                overrides = yaml.safe_load(f) or {}
+            # Merge shallowly for simplicity
+            if isinstance(overrides, dict):
+                registry = {**registry, **overrides}
+    except Exception:
+        pass
+    return registry
+
+def get_pipeline_config(pipeline_id: str) -> dict:
+    reg = load_pipeline_configs()
+    items = (reg.get('pipelines') or []) if isinstance(reg, dict) else []
+    for p in items:
+        if p.get('id') == pipeline_id:
+            # Load per-pipeline file
+            cfg_file = p.get('config')
+            if cfg_file:
+                try:
+                    with open(os.path.join(PIPELINES_DIR, cfg_file), 'r') as f:
+                        cfg = yaml.safe_load(f) or {}
+                    # Attach id and name from registry
+                    cfg.setdefault('id', p.get('id'))
+                    cfg.setdefault('name', p.get('name'))
+                    return cfg
+                except Exception:
+                    return p
+            return p
+    return {}
+
 
 # Configuration
 SERVICES = {
@@ -604,17 +656,66 @@ def run_pipeline():
         pipeline_status = 'success' if core_pipeline_success else 'failed'
         message = 'Pipeline executed successfully' if core_pipeline_success else 'Pipeline execution failed'
         
-        if core_pipeline_success and not tests_success:
-            message = 'Pipeline executed successfully (tests failed - check data quality)'
+        # Persist canonical test summary right after run
+        try:
+            ts = get_last_dbt_test_failures(project_dir=project_dir)
+            if core_pipeline_success and not tests_success:
+                count = ts.get('failed', 0)
+                names = ', '.join([t.get('name','unknown') for t in ts.get('tests', [])])
+                if count > 0:
+                    message = f'Pipeline executed successfully ({count} tests failed: {names})'
+                else:
+                    message = 'Pipeline executed successfully (tests failed - check data quality)'
+            # write summary file as well
+            summary = {
+                'pipeline': pipeline_name,
+                'status': pipeline_status,
+                'tests_passed': tests_success,
+                'timestamp': datetime.now().isoformat(),
+                'failed_count': ts.get('failed', 0),
+                'failed_tests': ts.get('tests', [])
+            }
+            with open('/tmp/last_test_summary.json', 'w') as f:
+                json.dump(summary, f)
+        except Exception:
+            pass
         
-        return jsonify({
+        response_payload = {
             'success': core_pipeline_success,
             'results': results,
             'message': message,
             'pipeline_status': pipeline_status,
             'tests_passed': tests_success,
             'pipeline_name': pipeline_name
-        })
+        }
+
+        # Persist concise last-run summary (including failed tests if any)
+        try:
+            summary = {
+                'pipeline': pipeline_name,
+                'status': pipeline_status,
+                'tests_passed': tests_success,
+                'timestamp': datetime.now().isoformat(),
+            }
+            test_summary = get_last_dbt_test_failures(project_dir=project_dir)
+            if test_summary.get('found'):
+                summary['failed_tests'] = test_summary.get('tests', [])
+                summary['failed_count'] = test_summary.get('failed', 0)
+            with open('/tmp/last_pipeline_summary.json', 'w') as f:
+                json.dump(summary, f)
+            # Write unified events
+            write_event({
+                'type': 'pipeline_run',
+                'pipeline_id': pipeline_name,
+                'status': pipeline_status,
+                'tests_passed': tests_success,
+                'failed_count': summary.get('failed_count', 0),
+                'message': message
+            })
+        except Exception:
+            pass
+
+        return jsonify(response_payload)
         
     except Exception as e:
         return jsonify({
@@ -716,7 +817,32 @@ def run_tests():
             text=True,
             timeout=300
         )
-        
+        # After test completes, persist canonical summary
+        try:
+            ts = get_last_dbt_test_failures(project_dir=project_dir)
+            summary = {
+                'timestamp': datetime.now().isoformat(),
+                'failed_count': ts.get('failed', 0),
+                'failed_tests': ts.get('tests', [])
+            }
+            with open('/tmp/last_test_summary.json', 'w') as f:
+                json.dump(summary, f)
+            # Persist raw output for troubleshooting
+            with open('/tmp/last_test_output.txt', 'w') as f:
+                f.write(result.stdout or '')
+                if result.stderr:
+                    f.write("\n--- stderr ---\n")
+                    f.write(result.stderr)
+            # Write unified events
+            write_event({
+                'type': 'dbt_test',
+                'pipeline_id': 'stavanger_parking',
+                'status': 'success' if result.returncode == 0 else 'failed',
+                'failed_count': summary.get('failed_count', 0)
+            })
+        except Exception:
+            pass
+
         return jsonify({
             'success': result.returncode == 0,
             'output': result.stdout if result.stdout else '',
@@ -1814,8 +1940,12 @@ def get_quality_metrics():
 def get_streaming_status():
     """Get streaming platform status"""
     try:
-        status = streaming_api.get_streaming_status()
-        return jsonify(status)
+        # Simulator disabled
+        return jsonify({
+            'overall_status': 'disabled',
+            'services': {},
+            'message': 'Streaming simulator is disabled'
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2024,40 +2154,8 @@ def get_last_pipeline_run(pipeline_name):
 def get_streaming_topics():
     """Get Kafka topic status and information"""
     try:
-        # Get topics from Kafka
-        topics = []
-        
-        # Raw data topic
-        topics.append({
-            'name': 'parking-raw-data',
-            'status': 'healthy',
-            'partitions': 3,
-            'messages': get_topic_message_count('parking-raw-data'),
-            'replicas': 1,
-            'cleanup_policy': 'delete'
-        })
-        
-        # Processed data topic
-        topics.append({
-            'name': 'parking-processed-data',
-            'status': 'healthy',
-            'partitions': 3,
-            'messages': get_topic_message_count('parking-processed-data'),
-            'replicas': 1,
-            'cleanup_policy': 'delete'
-        })
-        
-        # Alerts topic
-        topics.append({
-            'name': 'parking-alerts',
-            'status': 'healthy',
-            'partitions': 2,
-            'messages': get_topic_message_count('parking-alerts'),
-            'replicas': 1,
-            'cleanup_policy': 'delete'
-        })
-        
-        return jsonify(topics)
+        # Simulator disabled
+        return jsonify([])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2065,34 +2163,8 @@ def get_streaming_topics():
 def get_streaming_consumers():
     """Get consumer group information and lag"""
     try:
-        consumers = []
-        
-        # Simulate consumer groups (in real implementation, get from Kafka)
-        consumers.append({
-            'group': 'parking-processor',
-            'topic': 'parking-raw-data',
-            'lag': random.randint(0, 5),
-            'status': 'active',
-            'members': 2
-        })
-        
-        consumers.append({
-            'group': 'alert-processor',
-            'topic': 'parking-processed-data',
-            'lag': random.randint(0, 3),
-            'status': 'active',
-            'members': 1
-        })
-        
-        consumers.append({
-            'group': 'data-archiver',
-            'topic': 'parking-processed-data',
-            'lag': random.randint(5, 15),
-            'status': 'active',
-            'members': 1
-        })
-        
-        return jsonify(consumers)
+        # Simulator disabled
+        return jsonify([])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2100,59 +2172,10 @@ def get_streaming_consumers():
 def get_live_streaming_data():
     """Get live streaming data for dashboard display"""
     try:
-        # Get recent messages from topics (simulated for now)
-        messages = []
-        
-        # Raw data messages
-        raw_count = get_topic_message_count('parking-raw-data')
-        if raw_count > 0:
-            messages.append({
-                'type': 'raw',
-                'timestamp': datetime.now().isoformat(),
-                'data': {
-                    'location': 'Stavanger Sentrum',
-                    'utilization_rate': random.randint(20, 80),
-                    'available_spaces': random.randint(10, 50),
-                    'timestamp': datetime.now().isoformat()
-                }
-            })
-        
-        # Processed data messages
-        processed_count = get_topic_message_count('parking-processed-data')
-        if processed_count > 0:
-            messages.append({
-                'type': 'processed',
-                'timestamp': datetime.now().isoformat(),
-                'data': {
-                    'location': 'Stavanger Sentrum',
-                    'utilization_rate': random.randint(20, 80),
-                    'available_spaces': random.randint(10, 50),
-                    'processed_at': datetime.now().isoformat(),
-                    'processing_latency_ms': random.randint(10, 100)
-                }
-            })
-        
-        # Alert messages
-        alert_count = get_topic_message_count('parking-alerts')
-        if alert_count > 0:
-            messages.append({
-                'type': 'alert',
-                'timestamp': datetime.now().isoformat(),
-                'data': {
-                    'alert_type': 'HIGH_UTILIZATION',
-                    'location': 'Stavanger Sentrum',
-                    'severity': 'WARNING',
-                    'utilization_rate': random.randint(85, 95)
-                }
-            })
-        
+        # Simulator disabled
         return jsonify({
-            'messages': messages,
-            'counts': {
-                'raw': raw_count,
-                'processed': processed_count,
-                'alerts': alert_count
-            },
+            'messages': [],
+            'counts': { 'raw': 0, 'processed': 0, 'alerts': 0 },
             'timestamp': datetime.now().isoformat()
         })
     except Exception as e:
@@ -2181,19 +2204,406 @@ def stop_streaming():
 def get_topic_message_count(topic_name):
     """Get message count for a specific topic"""
     try:
-        # In a real implementation, this would query Kafka directly
-        # For now, return simulated counts
-        base_counts = {
-            'parking-raw-data': 150,
-            'parking-processed-data': 145,
-            'parking-alerts': 25
-        }
-        
-        # Add some randomness to simulate live data
-        base_count = base_counts.get(topic_name, 0)
-        return base_count + random.randint(0, 10)
+        # Simulator disabled
+        return 0
     except:
         return 0
+
+@app.route('/chat')
+def chat_page():
+    """Simple chat UI (stubbed backend)"""
+    return render_template('chat.html')
+
+@app.route('/api/chat', methods=['POST'])
+def api_chat():
+    """Chat endpoint using OpenAI if configured, with basic context and history."""
+    try:
+        data = request.get_json(silent=True) or {}
+        user_message = data.get('message', '').strip()
+        messages = data.get('messages', [])
+        if not user_message:
+            return jsonify({
+                'success': False,
+                'error': 'Message is required'
+            }), 400
+
+        # Lightweight intent: run Stavanger Parking pipeline
+        msg_lower = user_message.lower()
+        def _mentioned_stavanger() -> bool:
+            for m in reversed(messages):
+                if isinstance(m, dict) and 'content' in m and isinstance(m['content'], str):
+                    if 'stavanger parking' in m['content'].lower():
+                        return True
+            return False
+
+        if any(kw in msg_lower for kw in ['run pipeline', 'run the pipeline', 'start pipeline', 'start the pipeline', 'run it', 'start it']) or \
+           ('run' in msg_lower and 'pipeline' in msg_lower) or \
+           ('start' in msg_lower and 'pipeline' in msg_lower) or \
+           ('run' in msg_lower and 'stavanger' in msg_lower) or \
+           ('start' in msg_lower and 'stavanger' in msg_lower) or \
+           (msg_lower in {'start it', 'run it'} and _mentioned_stavanger()):
+            try:
+                run_resp = requests.post('http://localhost:5000/api/pipeline/run', json={'pipeline': 'stavanger_parking'}, timeout=600)
+                if run_resp.status_code == 200:
+                    rj = run_resp.json()
+                    ok = rj.get('success', False)
+                    msg = rj.get('message', 'Pipeline executed')
+                    details = rj.get('results', [])
+                    summary = f"Stavanger Parking pipeline {'started and completed successfully' if ok else 'failed'}: {msg}"
+                    # Shorten details for chat
+                    if details:
+                        first = details[0]
+                        if isinstance(first, dict) and 'command' in first:
+                            summary += f"\nFirst step: {first.get('command')} -> {'OK' if first.get('success') else 'FAIL'}"
+                    return jsonify({'success': True, 'reply': summary})
+                else:
+                    return jsonify({'success': True, 'reply': f"Attempted to start pipeline but received HTTP {run_resp.status_code}."})
+            except Exception as e:
+                return jsonify({'success': True, 'reply': f"Attempted to start pipeline but encountered an error: {str(e)}"})
+
+        # Lightweight intent: which tests failed
+        if any(kw in msg_lower for kw in ['which tests failed', 'what tests failed', 'failed tests', 'why did the tests fail']):
+            try:
+                ts = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3).json()
+                # If no failures found, run tests now to produce fresh artifacts
+                if not (ts.get('found') and ts.get('failed', 0) > 0):
+                    _ = requests.post('http://localhost:5000/api/pipeline/test', timeout=900)
+                    ts = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3).json()
+                if ts.get('found') and ts.get('failed', 0) > 0:
+                    lines = []
+                    for t in ts.get('tests', []):
+                        lines.append(f"- {t.get('name','unknown')}: {t.get('message','')}\n")
+                    reply = f"{ts.get('failed')} failing test(s):\n" + "".join(lines)
+                    return jsonify({'success': True, 'reply': reply})
+                else:
+                    return jsonify({'success': True, 'reply': 'dbt tests passed. No failing tests found.'})
+            except Exception as e:
+                return jsonify({'success': True, 'reply': f'Could not retrieve failing tests: {str(e)}'})
+
+        # Lightweight intent: run tests
+        if ('run' in msg_lower and 'test' in msg_lower) or msg_lower.strip() in {'run tests', 'dbt test', 'test it'}:
+            try:
+                test_resp = requests.post('http://localhost:5000/api/pipeline/test', timeout=600)
+                if test_resp.status_code == 200:
+                    tj = test_resp.json()
+                    ok = tj.get('tests_passed', False)
+                    # Refresh summary after tests
+                    _ = get_last_dbt_test_failures()
+                    if ok:
+                        return jsonify({'success': True, 'reply': 'dbt tests completed successfully.'})
+                    else:
+                        # Summarize failures
+                        ts = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3).json()
+                        if ts.get('found') and ts.get('failed', 0) > 0:
+                            names = ', '.join([t.get('name','unknown') for t in ts.get('tests', [])])
+                            return jsonify({'success': True, 'reply': f'dbt tests failed. Failing tests: {names}'})
+                        return jsonify({'success': True, 'reply': 'dbt tests failed. See run_results.json for details.'})
+                else:
+                    return jsonify({'success': True, 'reply': f"Attempted to run tests but received HTTP {test_resp.status_code}."})
+            except Exception as e:
+                return jsonify({'success': True, 'reply': f'Attempted to run tests but encountered an error: {str(e)}'})
+
+        # If OpenAI API key is configured, use it; otherwise fall back to stub echo
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if api_key:
+            try:
+                from openai import OpenAI  # type: ignore
+
+                client = _get_openai_client(api_key)
+                # Basic system prompt to ground the assistant to the platform
+                system_prompt = (
+                    "You are the FOSS Data Platform copilot. Answer in English. "
+                    "Default to data pipelines in this platform (Dagster/dbt/Trino). "
+                    "Be concise and task-oriented. If the user asks for current platform state, "
+                    "use the provided context to answer directly instead of giving generic guidance."
+                )
+
+                # Attempt to gather live platform context (pipelines)
+                context_lines = []
+                try:
+                    ctx_resp = requests.get('http://localhost:5000/api/pipeline/stats', timeout=3)
+                    if ctx_resp.status_code == 200:
+                        ctx = ctx_resp.json()
+                        if ctx.get('success'):
+                            context_lines.append(
+                                f"pipeline_stats: total={ctx.get('total_pipelines',0)}, "
+                                f"active={ctx.get('active_pipelines',0)}, failed={ctx.get('failed_pipelines',0)}"
+                            )
+                    # Add known pipeline details if available
+                    list_resp = requests.get('http://localhost:5000/api/pipeline/list', timeout=3)
+                    if list_resp.status_code == 200:
+                        lst = list_resp.json()
+                        if lst.get('success') and lst.get('pipelines'):
+                            names = [p.get('name') for p in lst['pipelines'] if p.get('name')]
+                            context_lines.append(f"pipelines_available: {', '.join(names)}")
+                            # Try enrich Stavanger Parking pipeline details
+                            if 'stavanger_parking' in names:
+                                det = requests.get('http://localhost:5000/api/pipeline/stavanger_parking', timeout=3)
+                                if det.status_code == 200:
+                                    d = det.json().get('pipeline', {})
+                                    if d:
+                                        context_lines.append(
+                                            "pipeline_detail: name=Stavanger Parking, "
+                                            f"type={d.get('type','dbt')}, target={d.get('target','dev')}, "
+                                            f"project_dir={d.get('project_dir','dbt_stavanger_parking')}"
+                                        )
+                    # Add latest dbt test summary if available
+                    test_resp = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3)
+                    if test_resp.status_code == 200:
+                        ts = test_resp.json()
+                        if ts.get('found') and ts.get('failed', 0) > 0:
+                            names = ', '.join([t.get('name', 'unknown') for t in ts.get('tests', [])])
+                            context_lines.append(f"dbt_tests_failed: count={ts.get('failed')}, names=[{names}]")
+                    last_run = requests.get('http://localhost:5000/api/pipeline/last-run-summary', timeout=3)
+                    if last_run.status_code == 200:
+                        lr = last_run.json()
+                        if lr.get('found'):
+                            context_lines.append(
+                                f"last_run: pipeline={lr.get('pipeline')}, status={lr.get('status')}, tests_passed={lr.get('tests_passed')}"
+                            )
+                except Exception:
+                    pass
+
+                # Convert simple history to OpenAI responses format by concatenating text
+                convo_text = "\n".join(
+                    [(f"User: {m.get('content','')}" if m.get('role')=='user' else f"Assistant: {m.get('content','')}") for m in messages]
+                )
+                ctx_text = ("\n".join(context_lines)) if context_lines else ""
+                composed_input = (
+                    f"{system_prompt}\n\nPlatform context (if any):\n{ctx_text}\n\n"
+                    f"Conversation so far:\n{convo_text}\n\nUser: {user_message}"
+                )
+
+                response = client.responses.create(
+                    model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
+                    input=composed_input,
+                    store=False,
+                )
+                assistant_reply = getattr(response, 'output_text', None) or str(response)
+            except Exception as e:
+                assistant_reply = f"(LLM error, falling back) I heard: '{user_message}'."
+        else:
+            assistant_reply = f"I heard: '{user_message}'. This is a stub response."
+
+        return jsonify({'success': True, 'reply': assistant_reply})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@lru_cache(maxsize=1)
+def _get_openai_client(api_key: str):
+    from openai import OpenAI  # lazy import
+    return OpenAI(api_key=api_key)
+
+
+def get_last_dbt_test_failures(project_dir: str = 'dbt_stavanger_parking'):
+    """Parse dbt artifacts to summarize failed tests, if any."""
+    try:
+        # Prefer persisted canonical summary if available
+        persisted = '/tmp/last_test_summary.json'
+        if os.path.exists(persisted):
+            with open(persisted, 'r') as f:
+                data = json.load(f)
+            return {
+                'found': True,
+                'failed': data.get('failed_count', 0),
+                'tests': data.get('failed_tests', [])
+            }
+
+        target_path = os.path.join(project_dir, 'target', 'run_results.json')
+        if not os.path.exists(target_path):
+            return {'found': False, 'failed': 0, 'tests': []}
+        with open(target_path, 'r') as f:
+            data = json.load(f)
+        results = data.get('results', [])
+        failed_tests = []
+        for r in results:
+            if r.get('resource_type') == 'test' and r.get('status') not in ('pass', 'success'):  # dbt may use 'fail'/'error'
+                node = r.get('unique_id', '')
+                name = r.get('info', {}).get('name') or r.get('node', {}).get('name') or node
+                message = (r.get('message') or r.get('failures') or r.get('status'))
+                failed_tests.append({'name': name, 'message': str(message)})
+        return {
+            'found': True,
+            'failed': len(failed_tests),
+            'tests': failed_tests[:10]  # cap for chat
+        }
+    except Exception:
+        return {'found': False, 'failed': 0, 'tests': []}
+
+
+# --- Unified events store (JSONL) ---
+EVENTS_PATH = '/tmp/pipeline_events.jsonl'
+
+
+def write_event(event: dict) -> None:
+    try:
+        enriched = {
+            **event,
+            'timestamp': datetime.now().isoformat()
+        }
+        with open(EVENTS_PATH, 'a') as f:
+            f.write(json.dumps(enriched) + "\n")
+    except Exception:
+        pass
+
+
+def read_recent_events(limit: int = 20, pipeline_id: str | None = None) -> list[dict]:
+    try:
+        if not os.path.exists(EVENTS_PATH):
+            return []
+        with open(EVENTS_PATH, 'r') as f:
+            lines = f.readlines()
+        records = []
+        for line in lines[-max(limit * 5, limit):]:  # oversample a bit before filter
+            try:
+                rec = json.loads(line)
+                if pipeline_id and rec.get('pipeline_id') != pipeline_id:
+                    continue
+                records.append(rec)
+            except Exception:
+                continue
+        return records[-limit:]
+    except Exception:
+        return []
+
+
+# --- Live ingestion adapter (Stavanger Parkering JSON) ---
+def _resolve_ckan_parking_json_url() -> str:
+    """Discover the JSON resource URL via CKAN package_show if not explicitly configured."""
+    try:
+        pkg_url = f"{CKAN_BASE}/api/3/action/package_show?id={PARKING_DATASET_ID}"
+        r = requests.get(pkg_url, timeout=10)
+        if r.status_code != 200:
+            raise RuntimeError(f"CKAN package_show HTTP {r.status_code}")
+        data = r.json()
+        if not data.get('success'):
+            raise RuntimeError('CKAN package_show returned success=false')
+        resources = (data.get('result') or {}).get('resources') or []
+        # Prefer JSON resources
+        for res in resources:
+            fmt = (res.get('format') or '').lower()
+            if fmt == 'json':
+                return res.get('url') or res.get('cache_url') or ''
+        # Fallback: first resource
+        if resources:
+            return resources[0].get('url') or resources[0].get('cache_url') or ''
+        raise RuntimeError('No resources found for dataset')
+    except Exception as e:
+        raise RuntimeError(f"Failed to resolve CKAN resource URL: {e}")
+
+
+def fetch_stavanger_parking_rows():
+    # Prefer pipeline config resolution
+    cfg = get_pipeline_config('stavanger_parking')
+    source_url = PARKING_JSON_URL
+    if not source_url:
+        if cfg.get('source', {}).get('kind') == 'ckan':
+            base = cfg['source']['ckan'].get('base') or CKAN_BASE
+            dataset_id = cfg['source']['ckan'].get('dataset_id') or PARKING_DATASET_ID
+            try:
+                pkg_url = f"{base.rstrip('/')}/api/3/action/package_show?id={dataset_id}"
+                r = requests.get(pkg_url, timeout=10)
+                if r.status_code == 200 and (r.json() or {}).get('success'):
+                    resources = (r.json().get('result') or {}).get('resources') or []
+                    for res in resources:
+                        if (res.get('format') or '').lower() == 'json':
+                            source_url = res.get('url') or res.get('cache_url') or ''
+                            break
+                    if not source_url and resources:
+                        source_url = resources[0].get('url') or resources[0].get('cache_url') or ''
+            except Exception:
+                pass
+    if not source_url:
+        source_url = _resolve_ckan_parking_json_url()
+    if not source_url:
+        raise RuntimeError('No valid data source URL resolved')
+    resp = requests.get(source_url, timeout=15)
+    if resp.status_code != 200:
+        raise RuntimeError(f'HTTP {resp.status_code} from data source')
+    data = resp.json()
+    # Try to accommodate common CKAN resource shapes
+    if isinstance(data, dict) and 'result' in data and isinstance(data['result'], list):
+        items = data['result']
+    elif isinstance(data, list):
+        items = data
+    else:
+        # Fallback: try nested records
+        items = data.get('records', []) if isinstance(data, dict) else []
+    rows = []
+    now_iso = datetime.now().isoformat()
+    for it in items:
+        # Heuristic field extraction
+        name = it.get('Sted') or it.get('name') or it.get('navn') or it.get('parking_name') or it.get('parkering') or ''
+        available = it.get('Antall_ledige_plasser') or it.get('available') or it.get('ledige') or it.get('available_spaces') or it.get('ledige_plasser') or 0
+        lat = it.get('Latitude') or it.get('lat') or it.get('latitude') or ''
+        lon = it.get('Longitude') or it.get('lon') or it.get('longitude') or ''
+        rows.append({
+            'name': str(name),
+            'available_spaces': int(available) if str(available).isdigit() else available,
+            'lat': lat,
+            'lon': lon,
+            'fetched_at': now_iso,
+        })
+    return rows
+
+
+def write_rows_to_seed_csv(rows):
+    seed_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking', 'seeds')
+    os.makedirs(seed_dir, exist_ok=True)
+    seed_path = os.path.join(seed_dir, 'live_parking.csv')
+    fieldnames = ['name', 'available_spaces', 'lat', 'lon', 'fetched_at']
+    with open(seed_path, 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, '') for k in fieldnames})
+    return seed_path
+
+
+@app.route('/api/ingestion/pull', methods=['POST'])
+def api_ingest_pull():
+    try:
+        rows = fetch_stavanger_parking_rows()
+        path = write_rows_to_seed_csv(rows)
+        write_event({'type': 'ingestion_pull', 'pipeline_id': 'stavanger_parking', 'status': 'success', 'rows': len(rows)})
+        return jsonify({'success': True, 'rows': len(rows), 'seed_path': path})
+    except Exception as e:
+        write_event({'type': 'ingestion_pull', 'pipeline_id': 'stavanger_parking', 'status': 'failed', 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pipeline/last-test-summary')
+def api_last_test_summary():
+    """Return a summary of the most recent dbt test failures, if present."""
+    summary = get_last_dbt_test_failures()
+    return jsonify(summary)
+
+
+@app.route('/api/pipeline/last-run-summary')
+def api_last_run_summary():
+    """Return last pipeline run summary persisted after execution."""
+    try:
+        path = '/tmp/last_pipeline_summary.json'
+        if not os.path.exists(path):
+            return jsonify({'found': False})
+        with open(path, 'r') as f:
+            data = json.load(f)
+        data['found'] = True
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'found': False, 'error': str(e)})
+
+
+@app.route('/api/errors/recent')
+def api_errors_recent():
+    try:
+        limit = int(request.args.get('limit', 20))
+        pipeline_id = request.args.get('pipeline')
+        events = read_recent_events(limit=limit, pipeline_id=pipeline_id)
+        return jsonify({'events': events})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

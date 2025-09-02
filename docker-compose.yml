@@ -42,7 +42,7 @@ services:
       - ./dagster:/opt/dagster/app
       - ./data:/opt/dagster/data
     working_dir: /opt/dagster
-    command: dagster-webserver -h 0.0.0.0 -p 3000 -f /opt/dagster/app/workspace.yaml
+    command: dagster-webserver -h 0.0.0.0 -p 3000 -w /opt/dagster/app/workspace.yaml
     networks:
       - data-platform
     restart: unless-stopped
@@ -211,6 +211,8 @@ services:
     container_name: dashboard
     ports:
       - "5000:5000"
+    env_file:
+      - .env
     volumes:
       - ./dashboard:/app
       - ./dbt_stavanger_parking:/app/dbt_stavanger_parking

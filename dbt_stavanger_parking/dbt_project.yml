@@ -17,36 +17,45 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+# Ensure required schemas exist (Trino memory connector)
+on-run-start:
+  - "CREATE SCHEMA IF NOT EXISTS memory.default_raw_data"
+  - "CREATE SCHEMA IF NOT EXISTS memory.default_staging"
+  - "CREATE SCHEMA IF NOT EXISTS memory.default_intermediate"
+  - "CREATE SCHEMA IF NOT EXISTS memory.default_marts"
+  - "CREATE SCHEMA IF NOT EXISTS memory.default_marts_core"
+  - "CREATE SCHEMA IF NOT EXISTS memory.default_marts_marketing"
+
 # Configuring data models
 models:
   stavanger_parking:
     # Config indicated by + and applies to all files under models/example/
     staging:
       +materialized: view
-      +schema: staging
+      +schema: default_staging
     intermediate:
       +materialized: view
-      +schema: intermediate
+      +schema: default_intermediate
     marts:
       +materialized: table
-      +schema: marts
+      +schema: default_marts
       core:
         +materialized: table
-        +schema: marts_core
+        +schema: default_marts_core
       marketing:
         +materialized: table
-        +schema: marts_marketing
+        +schema: default_marts_marketing
 
 # Seeds configuration
 seeds:
   stavanger_parking:
-    +schema: raw_data
+    +schema: default_raw_data
     +column_types:
-      id: varchar(255)
-      timestamp: timestamp
-      location: varchar(255)
-      occupancy: integer
-      capacity: integer
+      name: varchar(255)
+      available_spaces: integer
+      lat: varchar(64)
+      lon: varchar(64)
+      fetched_at: timestamp
 
 # Documentation
 docs-paths: ["docs"]

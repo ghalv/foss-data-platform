@@ -1,0 +1,30 @@
+# Pipeline configuration for Stavanger Parking
+id: stavanger_parking
+name: Stavanger Parking
+type: dbt
+owner: platform
+schedule: "*/5 * * * *"  # optional
+
+dbt:
+  project_dir: dbt_stavanger_parking
+  target: dev
+
+source:
+  kind: ckan
+  ckan:
+    base: https://opencom.no
+    dataset_id: stavanger-parkering
+    preferred_format: json
+
+ingestion:
+  seed_path: dbt_stavanger_parking/seeds/live_parking.csv
+  columns:
+    - name
+    - available_spaces
+    - lat
+    - lon
+    - fetched_at
+
+labels:
+  - parking
+  - stavanger

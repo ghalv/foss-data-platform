@@ -1,0 +1,7 @@
+version: 1
+pipelines:
+  - id: stavanger_parking
+    name: Stavanger Parking
+    type: dbt
+    config: stavanger_parking.yaml
+
