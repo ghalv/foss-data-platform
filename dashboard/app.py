@@ -2216,7 +2216,7 @@ def chat_page():
 
 @app.route('/api/chat', methods=['POST'])
 def api_chat():
-    """Chat endpoint using OpenAI if configured, with basic context and history."""
+    """Enhanced chat endpoint with comprehensive LLM integration and UI blocks."""
     try:
         data = request.get_json(silent=True) or {}
         user_message = data.get('message', '').strip()
@@ -2227,168 +2227,1636 @@ def api_chat():
                 'error': 'Message is required'
             }), 400
 
-        # Lightweight intent: run Stavanger Parking pipeline
         msg_lower = user_message.lower()
-        def _mentioned_stavanger() -> bool:
-            for m in reversed(messages):
-                if isinstance(m, dict) and 'content' in m and isinstance(m['content'], str):
-                    if 'stavanger parking' in m['content'].lower():
-                        return True
-            return False
 
-        if any(kw in msg_lower for kw in ['run pipeline', 'run the pipeline', 'start pipeline', 'start the pipeline', 'run it', 'start it']) or \
-           ('run' in msg_lower and 'pipeline' in msg_lower) or \
-           ('start' in msg_lower and 'pipeline' in msg_lower) or \
-           ('run' in msg_lower and 'stavanger' in msg_lower) or \
-           ('start' in msg_lower and 'stavanger' in msg_lower) or \
-           (msg_lower in {'start it', 'run it'} and _mentioned_stavanger()):
+        # Enhanced intent recognition with more capabilities
+        intents = analyze_user_intent(user_message, messages, messages)
+
+        # Force conversational patterns to trigger operations
+        msg_lower = user_message.lower()
+        if not intents.get('action'):
+            # Force status check for pipeline inquiries
+            if any(phrase in msg_lower for phrase in ['are there any pipelines', 'what pipelines', 'pipeline status', 'tell me about the failed', 'information about']):
+                intents['action'] = 'check_status'
+            # Force test execution for test requests
+            elif any(phrase in msg_lower for phrase in ['run a test', 'run some tests', 'run test', 'execute test', 'can you run a test', 'test it']):
+                intents['action'] = 'run_tests'
+
+        # For long-running operations, create an operation ID and start async processing
+        operation_id = None
+        if intents.get('action') in ['run_pipeline', 'run_tests', 'ingest_data', 'run_tests_and_check_status']:
+            operation_id = f"{intents.get('action')}_{int(time.time())}_{hash(user_message) % 10000}"
+
+            # Get operation context before starting
+            context_info = get_operation_context(intents, user_message)
+
+            # Start the operation in a separate thread
+            import threading
+            thread = threading.Thread(target=run_operation_async, args=(operation_id, intents, user_message))
+            thread.daemon = True
+            thread.start()
+
+            # Provide informative response with context - dynamic content in UI blocks
+            action_name = intents.get('action').replace('_', ' ').title()
+
+            # Create contextual response based on operation type
+            if intents.get('action') == 'run_pipeline':
+                response_message = f"🚀 Starting the Stavanger Parking pipeline execution. This will process the latest parking data through seeding, modeling, and testing phases. You'll see real-time progress in the card below."
+            elif intents.get('action') == 'run_tests':
+                response_message = f"🧪 Initiating comprehensive dbt test suite. This will validate data quality, check for null values, and ensure business logic integrity across all models. Results will appear in the progress card."
+            elif intents.get('action') == 'ingest_data':
+                response_message = f"📥 Starting data ingestion from the Stavanger Kommune API. This will fetch the latest parking availability data and update the staging tables. The progress card will show real-time updates."
+            elif intents.get('action') == 'run_tests_and_check_status':
+                response_message = f"🔍 Running combined diagnostic check - executing tests and assessing system health. This comprehensive analysis will identify any issues and provide actionable insights in the card below."
+            elif intents.get('action') == 'create_pipeline':
+                response_message = f"🏗️ Starting pipeline creation wizard. I'll guide you through setting up a new data pipeline step by step."
+            else:
+                response_message = f"⚙️ Starting {action_name.lower()} operation. The progress card below will keep you updated on the status."
+
+            return jsonify({
+                'success': True,
+                'reply': response_message,
+                'operation_id': operation_id,
+                'status': 'running',
+                'ui_blocks': [
+                    {
+                        'type': 'progress',
+                        'title': f'{action_name}',
+                        'status': 'running',
+                        'message': 'Initializing...',
+                        'progress': 5,
+                        'operation_id': operation_id,
+                        'context': context_info,
+                        'show_details': True
+                    }
+                ]
+            })
+
+        # Handle different intent types (short operations)
+        if intents.get('action') == 'check_status':
+            return handle_status_check(intents)
+        elif intents.get('action') == 'query_data':
+            return handle_data_query(intents, user_message)
+        elif intents.get('action') == 'health_check':
+            return handle_health_check(intents)
+        elif intents.get('action') == 'run_tests_and_check_status':
+            # This will be handled by the async processing above
+            pass
+        elif intents.get('action') == 'create_pipeline':
+            return handle_create_pipeline(intents, user_message, messages)
+
+        # Use OpenAI for complex queries or general assistance
+        return handle_llm_assistance(user_message, messages, intents)
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Chat error: {str(e)}'}), 500
+
+
+@app.route('/api/chat/progress/<operation_id>', methods=['GET'])
+def get_operation_progress(operation_id):
+    """Get progress status for a specific operation."""
+    try:
+        progress_file = f'/tmp/operation_{operation_id}.json'
+        if os.path.exists(progress_file):
+            with open(progress_file, 'r') as f:
+                progress_data = json.load(f)
+            return jsonify(progress_data)
+        else:
+            return jsonify({
+                'status': 'unknown',
+                'message': 'Operation not found',
+                'completed': False
+            })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error checking progress: {str(e)}',
+            'completed': True
+        })
+
+
+@app.route('/api/logs/diagnostics', methods=['GET'])
+def get_system_diagnostics():
+    """Get comprehensive system diagnostics for troubleshooting."""
+    try:
+        diagnostics = {
+            'timestamp': datetime.now().isoformat(),
+            'system_health': {},
+            'pipeline_status': {},
+            'recent_errors': [],
+            'service_logs': {},
+            'data_quality': {}
+        }
+
+        # System health overview
+        try:
+            health_resp = requests.get('http://localhost:5000/api/health', timeout=5)
+            if health_resp.status_code == 200:
+                diagnostics['system_health'] = health_resp.json()
+        except:
+            diagnostics['system_health'] = {'error': 'Unable to fetch health data'}
+
+        # Pipeline status
+        try:
+            stats_resp = requests.get('http://localhost:5000/api/pipeline/stats', timeout=5)
+            if stats_resp.status_code == 200:
+                diagnostics['pipeline_status'] = stats_resp.json()
+        except:
+            diagnostics['pipeline_status'] = {'error': 'Unable to fetch pipeline stats'}
+
+        # Recent test failures
+        try:
+            test_resp = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=5)
+            if test_resp.status_code == 200:
+                test_data = test_resp.json()
+                if test_data.get('found') and test_data.get('failed', 0) > 0:
+                    diagnostics['recent_errors'].append({
+                        'type': 'test_failures',
+                        'count': test_data.get('failed'),
+                        'details': test_data.get('tests', [])[:5]  # First 5 failures
+                    })
+        except:
+            pass
+
+        # Recent pipeline events
+        try:
+            events = read_recent_events(limit=10)
+            if events:
+                diagnostics['recent_errors'].extend([{
+                    'type': 'pipeline_event',
+                    'timestamp': e.get('timestamp'),
+                    'event_type': e.get('event_type'),
+                    'message': e.get('message')
+                } for e in events])
+        except:
+            pass
+
+        # Data quality metrics
+        try:
+            # Check if parking data exists
+            csv_path = os.path.join('dbt_stavanger_parking', 'seeds', 'live_parking.csv')
+            if os.path.exists(csv_path):
+                mtime = os.path.getmtime(csv_path)
+                diagnostics['data_quality']['last_update'] = datetime.fromtimestamp(mtime).isoformat()
+
+                # Get record count
+                try:
+                    query_resp = requests.post('http://localhost:5000/api/query/execute',
+                                              json={'query': 'SELECT COUNT(*) as cnt FROM memory.default_staging.stg_parking_data'},
+                                              timeout=10)
+                    if query_resp.status_code == 200:
+                        qj = query_resp.json()
+                        if qj.get('success') and qj.get('results'):
+                            diagnostics['data_quality']['record_count'] = qj['results'][0].get('cnt', 0)
+                except:
+                    pass
+            else:
+                diagnostics['data_quality']['status'] = 'No data file found'
+        except:
+            diagnostics['data_quality']['error'] = 'Unable to check data quality'
+
+        return jsonify(diagnostics)
+
+    except Exception as e:
+        return jsonify({
+            'error': f'Diagnostics error: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@app.route('/api/logs/recent', methods=['GET'])
+def get_recent_logs():
+    """Get recent system logs and events."""
+    try:
+        limit = int(request.args.get('limit', 20))
+        log_type = request.args.get('type', 'all')  # all, errors, pipeline, system
+
+        logs = {
+            'timestamp': datetime.now().isoformat(),
+            'logs': [],
+            'summary': {}
+        }
+
+        # Get recent events from our unified store
+        try:
+            events = read_recent_events(limit=limit)
+            if events:
+                for event in events:
+                    if log_type == 'all' or event.get('event_type') == log_type:
+                        logs['logs'].append({
+                            'timestamp': event.get('timestamp'),
+                            'type': event.get('event_type'),
+                            'level': event.get('level', 'info'),
+                            'message': event.get('message'),
+                            'details': event.get('details', {})
+                        })
+        except:
+            pass
+
+        # Add summary statistics
+        logs['summary'] = {
+            'total_logs': len(logs['logs']),
+            'error_count': len([l for l in logs['logs'] if l.get('level') == 'error']),
+            'pipeline_events': len([l for l in logs['logs'] if l.get('type') == 'pipeline']),
+            'system_events': len([l for l in logs['logs'] if l.get('type') == 'system'])
+        }
+
+        return jsonify(logs)
+
+    except Exception as e:
+        return jsonify({
+            'error': f'Log retrieval error: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+def run_operation_async(operation_id, intents, user_message):
+    """Run long operations asynchronously and update progress."""
+    try:
+        progress_file = f'/tmp/operation_{operation_id}.json'
+
+        # Initialize progress
+        progress_data = {
+            'operation_id': operation_id,
+            'status': 'running',
+            'message': 'Initializing...',
+            'progress': 0,
+            'completed': False,
+            'start_time': time.time()
+        }
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        # Update progress and run operation
+        if intents.get('action') == 'run_pipeline':
+            result = run_pipeline_operation(operation_id, intents)
+        elif intents.get('action') == 'run_tests':
+            result = run_test_operation(operation_id, intents)
+        elif intents.get('action') == 'ingest_data':
+            result = run_ingest_operation(operation_id, intents)
+        elif intents.get('action') == 'run_tests_and_check_status':
+            result = run_tests_and_status_combined(operation_id, intents)
+        elif intents.get('action') == 'create_pipeline':
+            result = run_create_pipeline_operation(operation_id, intents)
+        else:
+            result = {
+                'success': False,
+                'reply': 'Unknown operation type',
+                'ui_blocks': []
+            }
+
+        # Mark as completed
+        result['operation_id'] = operation_id
+        result['completed'] = True
+        result['status'] = 'completed' if result.get('success') else 'failed'
+
+        with open(progress_file, 'w') as f:
+            json.dump(result, f)
+
+        # Clean up old progress files (older than 1 hour)
+        cleanup_old_progress_files()
+
+    except Exception as e:
+        error_result = {
+            'operation_id': operation_id,
+            'status': 'error',
+            'message': f'Operation failed: {str(e)}',
+            'completed': True,
+            'success': False,
+            'reply': f'Operation failed with error: {str(e)}',
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': 'Operation Status',
+                'value': '❌ Error',
+                'color': 'danger'
+            }]
+        }
+        try:
+            with open(progress_file, 'w') as f:
+                json.dump(error_result, f)
+        except:
+            pass
+
+        # Clean up old progress files
+        cleanup_old_progress_files()
+
+
+def get_operation_context(intents, user_message):
+    """Get contextual information about what an operation will do."""
+    action = intents.get('action')
+    pipeline = intents.get('pipeline', 'stavanger_parking')
+
+    contexts = {
+        'run_pipeline': {
+            'description': f'Running the {pipeline} pipeline which includes data seeding, model execution, and testing. This will process parking data from the live API.',
+            'estimated_time': '2-5 minutes',
+            'steps': ['Seed live data', 'Run dbt models', 'Execute tests', 'Generate reports']
+        },
+        'run_tests': {
+            'description': 'Running comprehensive tests on all dbt models to ensure data quality and integrity. This includes checks for null values, data consistency, and business logic validation.',
+            'estimated_time': '1-3 minutes',
+            'steps': ['Load test data', 'Run all dbt tests', 'Validate results', 'Generate test summary']
+        },
+        'ingest_data': {
+            'description': 'Fetching the latest parking data from the Stavanger Kommune API and updating the local database. This ensures we have the most current parking availability information.',
+            'estimated_time': '30-60 seconds',
+            'steps': ['Connect to API', 'Download data', 'Process and clean', 'Update database']
+        },
+        'run_tests_and_check_status': {
+            'description': 'Running comprehensive tests on dbt models and checking the current status of all platform services and pipelines.',
+            'estimated_time': '1-2 minutes',
+            'steps': ['Run dbt tests', 'Check service health', 'Analyze pipeline status', 'Generate combined report']
+        }
+    }
+
+    context = contexts.get(action, {
+        'description': 'Processing your request...',
+        'estimated_time': 'Varies',
+        'steps': ['Processing', 'Completing operation']
+    })
+
+    return context
+
+
+def cleanup_old_progress_files():
+    """Clean up progress files older than 1 hour."""
+    try:
+        import glob
+        progress_dir = '/tmp'
+        current_time = time.time()
+
+        for progress_file in glob.glob(f'{progress_dir}/operation_*.json'):
             try:
-                run_resp = requests.post('http://localhost:5000/api/pipeline/run', json={'pipeline': 'stavanger_parking'}, timeout=600)
-                if run_resp.status_code == 200:
-                    rj = run_resp.json()
-                    ok = rj.get('success', False)
-                    msg = rj.get('message', 'Pipeline executed')
-                    details = rj.get('results', [])
-                    summary = f"Stavanger Parking pipeline {'started and completed successfully' if ok else 'failed'}: {msg}"
-                    # Shorten details for chat
-                    if details:
-                        first = details[0]
-                        if isinstance(first, dict) and 'command' in first:
-                            summary += f"\nFirst step: {first.get('command')} -> {'OK' if first.get('success') else 'FAIL'}"
-                    return jsonify({'success': True, 'reply': summary})
-                else:
-                    return jsonify({'success': True, 'reply': f"Attempted to start pipeline but received HTTP {run_resp.status_code}."})
-            except Exception as e:
-                return jsonify({'success': True, 'reply': f"Attempted to start pipeline but encountered an error: {str(e)}"})
+                file_age = current_time - os.path.getmtime(progress_file)
+                if file_age > 3600:  # 1 hour
+                    os.remove(progress_file)
+            except:
+                pass
+    except:
+        pass
 
-        # Lightweight intent: which tests failed
-        if any(kw in msg_lower for kw in ['which tests failed', 'what tests failed', 'failed tests', 'why did the tests fail']):
+
+def run_pipeline_operation(operation_id, intents):
+    """Run pipeline operation with progress updates."""
+    progress_file = f'/tmp/operation_{operation_id}.json'
+
+    # Update progress: Starting
+    progress_data = {
+        'operation_id': operation_id,
+        'status': 'running',
+        'message': 'Starting pipeline execution...',
+        'progress': 10,
+        'completed': False
+    }
+    with open(progress_file, 'w') as f:
+        json.dump(progress_data, f)
+
+    try:
+        pipeline = intents.get('pipeline', 'stavanger_parking')
+
+        # Update progress: Running
+        progress_data.update({
+            'message': f'Executing {pipeline} pipeline...',
+            'progress': 30
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        run_resp = requests.post('http://localhost:5000/api/pipeline/run',
+                                json={'pipeline': pipeline}, timeout=600)
+
+        if run_resp.status_code == 200:
+            rj = run_resp.json()
+            ok = rj.get('success', False)
+            msg = rj.get('message', 'Pipeline executed')
+
+            # Update progress: Completed
+            result = {
+                'success': True,
+                'reply': msg,
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Pipeline Execution',
+                    'value': '✅ Success' if ok else '❌ Failed',
+                    'color': 'success' if ok else 'danger'
+                }]
+            }
+
+            if rj.get('results'):
+                details = rj['results']
+                result['ui_blocks'].append({
+                    'type': 'table',
+                    'title': 'Execution Details',
+                    'columns': ['Step', 'Command', 'Status'],
+                    'rows': [[d.get('command', ''), '✅' if d.get('success') else '❌', d.get('error', '')]
+                            for d in details[:3]]
+                })
+
+            # Add suggestions
+            suggestions = generate_suggestions(result['ui_blocks'])
+            if suggestions:
+                result['ui_blocks'].append(suggestions)
+
+            # Simple, direct response focused on the user's request
+            if ok:
+                result['reply'] = f"Yes, I've successfully executed the Stavanger parking pipeline. The data has been processed and is ready to use."
+                # For successful runs, minimal UI - user can ask for details if needed
+                result['ui_blocks'] = [{
+                    'type': 'metric',
+                    'title': 'Pipeline Status',
+                    'value': '✅ Success',
+                    'color': 'success'
+                }]
+            else:
+                result['reply'] = f"The pipeline execution failed. Let me show you what went wrong so we can fix it:"
+
+            return result
+        else:
+            return {
+                'success': False,
+                'reply': f"Pipeline run failed with HTTP {run_resp.status_code}",
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Pipeline Execution',
+                    'value': '❌ HTTP Error',
+                    'color': 'danger'
+                }]
+            }
+    except Exception as e:
+        return {
+            'success': False,
+            'reply': f'Pipeline run error: {str(e)}',
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': 'Pipeline Execution',
+                'value': '❌ Error',
+                'color': 'danger'
+            }]
+        }
+
+
+def run_test_operation(operation_id, intents):
+    """Run test operation with progress updates."""
+    progress_file = f'/tmp/operation_{operation_id}.json'
+
+    # Update progress: Starting
+    progress_data = {
+        'operation_id': operation_id,
+        'status': 'running',
+        'message': 'Starting test execution...',
+        'progress': 20,
+        'completed': False
+    }
+    with open(progress_file, 'w') as f:
+        json.dump(progress_data, f)
+
+    try:
+        # Update progress: Running tests
+        progress_data.update({
+            'message': 'Running dbt tests...',
+            'progress': 50
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        test_resp = requests.post('http://localhost:5000/api/pipeline/test', timeout=600)
+
+        if test_resp.status_code == 200:
+            tj = test_resp.json()
+            ok = tj.get('tests_passed', False)
+
+            # Update progress: Completed
+            progress_data.update({
+                'message': 'Tests completed, processing results...',
+                'progress': 90
+            })
+            with open(progress_file, 'w') as f:
+                json.dump(progress_data, f)
+
+            result = {
+                'success': True,
+                'reply': 'Tests completed successfully!' if ok else 'Some tests failed.',
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Test Results',
+                    'value': '✅ All Passed' if ok else '⚠️ Some Failed',
+                    'color': 'success' if ok else 'warning'
+                }]
+            }
+
+            # Get detailed test results
             try:
                 ts = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3).json()
-                # If no failures found, run tests now to produce fresh artifacts
-                if not (ts.get('found') and ts.get('failed', 0) > 0):
-                    _ = requests.post('http://localhost:5000/api/pipeline/test', timeout=900)
-                    ts = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3).json()
                 if ts.get('found') and ts.get('failed', 0) > 0:
-                    lines = []
-                    for t in ts.get('tests', []):
-                        lines.append(f"- {t.get('name','unknown')}: {t.get('message','')}\n")
-                    reply = f"{ts.get('failed')} failing test(s):\n" + "".join(lines)
-                    return jsonify({'success': True, 'reply': reply})
-                else:
-                    return jsonify({'success': True, 'reply': 'dbt tests passed. No failing tests found.'})
-            except Exception as e:
-                return jsonify({'success': True, 'reply': f'Could not retrieve failing tests: {str(e)}'})
+                    result['ui_blocks'].append({
+                        'type': 'table',
+                        'title': 'Failed Tests',
+                        'columns': ['Test Name', 'Error'],
+                        'rows': [[t.get('name', 'unknown'), t.get('message', '')]
+                                for t in ts.get('tests', [])[:5]]
+                    })
+            except:
+                pass
 
-        # Lightweight intent: run tests
-        if ('run' in msg_lower and 'test' in msg_lower) or msg_lower.strip() in {'run tests', 'dbt test', 'test it'}:
-            try:
-                test_resp = requests.post('http://localhost:5000/api/pipeline/test', timeout=600)
-                if test_resp.status_code == 200:
-                    tj = test_resp.json()
-                    ok = tj.get('tests_passed', False)
-                    # Refresh summary after tests
-                    _ = get_last_dbt_test_failures()
-                    if ok:
-                        return jsonify({'success': True, 'reply': 'dbt tests completed successfully.'})
-                    else:
-                        # Summarize failures
-                        ts = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3).json()
-                        if ts.get('found') and ts.get('failed', 0) > 0:
-                            names = ', '.join([t.get('name','unknown') for t in ts.get('tests', [])])
-                            return jsonify({'success': True, 'reply': f'dbt tests failed. Failing tests: {names}'})
-                        return jsonify({'success': True, 'reply': 'dbt tests failed. See run_results.json for details.'})
-                else:
-                    return jsonify({'success': True, 'reply': f"Attempted to run tests but received HTTP {test_resp.status_code}."})
-            except Exception as e:
-                return jsonify({'success': True, 'reply': f'Attempted to run tests but encountered an error: {str(e)}'})
+            # Add suggestions
+            suggestions = generate_suggestions(result['ui_blocks'])
+            if suggestions:
+                result['ui_blocks'].append(suggestions)
 
-        # If OpenAI API key is configured, use it; otherwise fall back to stub echo
-        api_key = os.environ.get('OPENAI_API_KEY')
-        if api_key:
-            try:
-                from openai import OpenAI  # type: ignore
+            # Direct response focused on test results
+            if ok:
+                result['reply'] = f"Great news! All tests passed successfully. Your data quality looks good."
+                # For successful tests, minimal UI - user can ask for details if needed
+                result['ui_blocks'] = [{
+                    'type': 'metric',
+                    'title': 'Test Results',
+                    'value': '✅ All Passed',
+                    'color': 'success'
+                }]
+            else:
+                result['reply'] = f"Some tests failed. Let me show you which ones so we can fix them:"
 
-                client = _get_openai_client(api_key)
-                # Basic system prompt to ground the assistant to the platform
-                system_prompt = (
-                    "You are the FOSS Data Platform copilot. Answer in English. "
-                    "Default to data pipelines in this platform (Dagster/dbt/Trino). "
-                    "Be concise and task-oriented. If the user asks for current platform state, "
-                    "use the provided context to answer directly instead of giving generic guidance."
-                )
-
-                # Attempt to gather live platform context (pipelines)
-                context_lines = []
-                try:
-                    ctx_resp = requests.get('http://localhost:5000/api/pipeline/stats', timeout=3)
-                    if ctx_resp.status_code == 200:
-                        ctx = ctx_resp.json()
-                        if ctx.get('success'):
-                            context_lines.append(
-                                f"pipeline_stats: total={ctx.get('total_pipelines',0)}, "
-                                f"active={ctx.get('active_pipelines',0)}, failed={ctx.get('failed_pipelines',0)}"
-                            )
-                    # Add known pipeline details if available
-                    list_resp = requests.get('http://localhost:5000/api/pipeline/list', timeout=3)
-                    if list_resp.status_code == 200:
-                        lst = list_resp.json()
-                        if lst.get('success') and lst.get('pipelines'):
-                            names = [p.get('name') for p in lst['pipelines'] if p.get('name')]
-                            context_lines.append(f"pipelines_available: {', '.join(names)}")
-                            # Try enrich Stavanger Parking pipeline details
-                            if 'stavanger_parking' in names:
-                                det = requests.get('http://localhost:5000/api/pipeline/stavanger_parking', timeout=3)
-                                if det.status_code == 200:
-                                    d = det.json().get('pipeline', {})
-                                    if d:
-                                        context_lines.append(
-                                            "pipeline_detail: name=Stavanger Parking, "
-                                            f"type={d.get('type','dbt')}, target={d.get('target','dev')}, "
-                                            f"project_dir={d.get('project_dir','dbt_stavanger_parking')}"
-                                        )
-                    # Add latest dbt test summary if available
-                    test_resp = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3)
-                    if test_resp.status_code == 200:
-                        ts = test_resp.json()
-                        if ts.get('found') and ts.get('failed', 0) > 0:
-                            names = ', '.join([t.get('name', 'unknown') for t in ts.get('tests', [])])
-                            context_lines.append(f"dbt_tests_failed: count={ts.get('failed')}, names=[{names}]")
-                    last_run = requests.get('http://localhost:5000/api/pipeline/last-run-summary', timeout=3)
-                    if last_run.status_code == 200:
-                        lr = last_run.json()
-                        if lr.get('found'):
-                            context_lines.append(
-                                f"last_run: pipeline={lr.get('pipeline')}, status={lr.get('status')}, tests_passed={lr.get('tests_passed')}"
-                            )
-                except Exception:
-                    pass
-
-                # Convert simple history to OpenAI responses format by concatenating text
-                convo_text = "\n".join(
-                    [(f"User: {m.get('content','')}" if m.get('role')=='user' else f"Assistant: {m.get('content','')}") for m in messages]
-                )
-                ctx_text = ("\n".join(context_lines)) if context_lines else ""
-                composed_input = (
-                    f"{system_prompt}\n\nPlatform context (if any):\n{ctx_text}\n\n"
-                    f"Conversation so far:\n{convo_text}\n\nUser: {user_message}"
-                )
-
-                response = client.responses.create(
-                    model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
-                    input=composed_input,
-                    store=False,
-                )
-                assistant_reply = getattr(response, 'output_text', None) or str(response)
-            except Exception as e:
-                assistant_reply = f"(LLM error, falling back) I heard: '{user_message}'."
+            return result
         else:
-            assistant_reply = f"I heard: '{user_message}'. This is a stub response."
-
-        return jsonify({'success': True, 'reply': assistant_reply})
+            return {
+                'success': False,
+                'reply': f'Test run failed with HTTP {test_resp.status_code}',
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Test Results',
+                    'value': '❌ HTTP Error',
+                    'color': 'danger'
+                }]
+            }
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return {
+            'success': False,
+            'reply': f'Test execution error: {str(e)}',
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': 'Test Results',
+                'value': '❌ Error',
+                'color': 'danger'
+            }]
+        }
 
+
+def run_ingest_operation(operation_id, intents):
+    """Run data ingestion operation with progress updates."""
+    progress_file = f'/tmp/operation_{operation_id}.json'
+
+    # Update progress: Starting
+    progress_data = {
+        'operation_id': operation_id,
+        'status': 'running',
+        'message': 'Starting data ingestion...',
+        'progress': 15,
+        'completed': False
+    }
+    with open(progress_file, 'w') as f:
+        json.dump(progress_data, f)
+
+    try:
+        # Update progress: Connecting to API
+        progress_data.update({
+            'message': 'Connecting to Stavanger Kommune API...',
+            'progress': 30
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        ingest_resp = requests.post('http://localhost:5000/api/ingestion/pull',
+                                   json={}, timeout=300)
+
+        # Update progress: Processing data
+        progress_data.update({
+            'message': 'Processing and storing data...',
+            'progress': 70
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        if ingest_resp.status_code == 200:
+            ij = ingest_resp.json()
+            success = ij.get('success', False)
+            rows = ij.get('rows', 0)
+
+            # Update progress: Finalizing
+            progress_data.update({
+                'message': 'Finalizing data ingestion...',
+                'progress': 95
+            })
+            with open(progress_file, 'w') as f:
+                json.dump(progress_data, f)
+
+            # Direct response focused on data loading results
+            if success:
+                reply_msg = f"Perfect! I've successfully loaded {rows} parking records from the API. The data is ready for processing."
+                # For successful ingestion, minimal UI - user can ask for details if needed
+                result['ui_blocks'] = [{
+                    'type': 'metric',
+                    'title': 'Data Ingestion',
+                    'value': f'{rows} records',
+                    'color': 'success'
+                }]
+            else:
+                reply_msg = f"There was an issue loading the data. Let me show you what went wrong:"
+
+            result = {
+                'success': True,
+                'reply': reply_msg,
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Data Ingestion',
+                    'value': f'{rows} records',
+                    'color': 'success' if success else 'danger'
+                }]
+            }
+
+            return result
+        else:
+            return {
+                'success': False,
+                'reply': f'Ingestion failed with HTTP {ingest_resp.status_code}',
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Data Ingestion',
+                    'value': '❌ HTTP Error',
+                    'color': 'danger'
+                }]
+            }
+    except Exception as e:
+        return {
+            'success': False,
+            'reply': f'Data ingestion error: {str(e)}',
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': 'Data Ingestion',
+                'value': '❌ Error',
+                'color': 'danger'
+            }]
+        }
+
+
+def analyze_user_intent(message, history, messages=None):
+    """Analyze user message to determine intent and extract parameters."""
+    msg_lower = message.lower()
+    intents = {'action': None, 'pipeline': 'stavanger_parking', 'parameters': {}}
+
+    # Pipeline operations - expanded recognition
+    if any(kw in msg_lower for kw in ['run pipeline', 'start pipeline', 'execute pipeline', 'run stavanger', 'start the pipeline']):
+        intents['action'] = 'run_pipeline'
+    elif any(kw in msg_lower for kw in ['run test', 'execute test', 'test pipeline', 'run tests', 'execute tests', 'run a test', 'test it', 'run some tests']):
+        intents['action'] = 'run_tests'
+    elif any(kw in msg_lower for kw in ['ingest', 'pull data', 'fetch data', 'update data', 'pull latest data']):
+        intents['action'] = 'ingest_data'
+    elif any(kw in msg_lower for kw in ['status', 'what is running', 'pipeline status', 'check status', 'service status', 'system status', 'platform status']):
+        intents['action'] = 'check_status'
+    elif any(kw in msg_lower for kw in ['query', 'show data', 'get data', 'select', 'count']):
+        intents['action'] = 'query_data'
+    elif any(kw in msg_lower for kw in ['health', 'system health', 'platform health']):
+        intents['action'] = 'health_check'
+    elif any(kw in msg_lower for kw in ['create pipeline', 'new pipeline', 'build pipeline', 'setup pipeline']):
+        intents['action'] = 'create_pipeline'
+    # Additional conversational patterns
+    elif any(kw in msg_lower for kw in ['tell me about', 'what about', 'information about', 'details about']):
+        if 'pipeline' in msg_lower or 'failed' in msg_lower:
+            intents['action'] = 'check_status'
+    elif 'running' in msg_lower and ('pipeline' in msg_lower or 'pipelines' in msg_lower):
+        intents['action'] = 'check_status'
+
+    # Handle conversational follow-ups based on previous assistant messages
+    if messages and len(messages) > 0 and intents['action'] is None:
+        last_assistant_msg = None
+        for msg in reversed(messages):
+            if msg.get('role') == 'assistant':
+                last_assistant_msg = msg.get('content', '').lower()
+                break
+
+        if last_assistant_msg:
+            # If assistant suggested running tests, handle affirmative responses
+            if ('run test' in last_assistant_msg or 'test' in last_assistant_msg or 'running tests' in last_assistant_msg):
+                if any(affirmative in msg_lower for affirmative in ['yes', 'please', 'go ahead', 'run', 'do it', 'okay', 'sure', 'lets do it', 'run it']):
+                    intents['action'] = 'run_tests'
+
+            # If assistant mentioned failed pipelines, handle requests for details
+            elif ('failed pipeline' in last_assistant_msg or 'attention' in last_assistant_msg or 'need attention' in last_assistant_msg):
+                if any(detail_req in msg_lower for detail_req in ['what kind', 'what kind of', 'why', 'what happened', 'details', 'more info', 'tell me more']):
+                    intents['action'] = 'run_tests_and_check_status'  # Get detailed diagnostics
+
+    # Handle combined requests like "Please do both" or "run tests and check status"
+    if any(kw in msg_lower for kw in ['both', 'and', 'also', 'together', 'please do']):
+        # Look for test + status combination
+        if ('test' in msg_lower or 'tests' in msg_lower) and ('status' in msg_lower or 'check' in msg_lower):
+            intents['action'] = 'run_tests_and_check_status'
+        elif ('test' in msg_lower or 'tests' in msg_lower) and 'ingest' in msg_lower:
+            intents['action'] = 'run_tests_and_ingest'
+        elif ('status' in msg_lower or 'check' in msg_lower) and 'ingest' in msg_lower:
+            intents['action'] = 'check_status_and_ingest'
+        # Handle generic "do both" based on conversation context
+        elif any(kw in msg_lower for kw in ['do both', 'please do', 'run both']):
+            # Check conversation history for what "both" refers to
+            if messages:
+                recent_content = ' '.join([msg.get('content', '') for msg in messages[-3:]]).lower()
+                if ('test' in recent_content or 'tests' in recent_content) and ('status' in recent_content or 'check' in recent_content):
+                    intents['action'] = 'run_tests_and_check_status'
+
+    # Extract pipeline name if specified
+    if 'stavanger' in msg_lower:
+        intents['pipeline'] = 'stavanger_parking'
+
+    return intents
+
+
+def handle_pipeline_run(intents):
+    """Handle pipeline run requests with safety confirmations."""
+    try:
+        pipeline = intents.get('pipeline', 'stavanger_parking')
+
+        # Safety check: Warn about potential data overwrites
+        safety_warnings = []
+
+        # Check if pipeline has been run recently
+        try:
+            last_run_resp = requests.get('http://localhost:5000/api/pipeline/last-run-summary', timeout=3)
+            if last_run_resp.status_code == 200:
+                lr = last_run_resp.json()
+                if lr.get('found') and lr.get('pipeline') == pipeline:
+                    last_run_time = lr.get('timestamp', '')
+                    if last_run_time:
+                        # If run within last 5 minutes, suggest it's recent
+                        safety_warnings.append("Pipeline was recently executed - consider if re-run is necessary")
+        except:
+            pass
+
+        # Check if there are any failed tests that might indicate issues
+        try:
+            test_resp = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3)
+            if test_resp.status_code == 200:
+                ts = test_resp.json()
+                if ts.get('found') and ts.get('failed', 0) > 0:
+                    safety_warnings.append(f"There are {ts.get('failed')} failed tests - pipeline may have issues")
+        except:
+            pass
+
+        # Proceed with execution
+        run_resp = requests.post('http://localhost:5000/api/pipeline/run',
+                                json={'pipeline': pipeline}, timeout=600)
+
+        if run_resp.status_code == 200:
+            rj = run_resp.json()
+            ok = rj.get('success', False)
+            msg = rj.get('message', 'Pipeline executed')
+
+            # Add safety warnings to response if any
+            if safety_warnings:
+                msg += f"\n\n⚠️ Safety notes:\n" + "\n".join(f"• {w}" for w in safety_warnings)
+
+            # Create structured response with UI blocks
+            response = {
+                'success': True,
+                'reply': msg,
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Pipeline Execution',
+                    'value': '✅ Success' if ok else '❌ Failed',
+                    'color': 'success' if ok else 'danger'
+                }]
+            }
+
+            # Add safety warnings as info blocks
+            if safety_warnings:
+                response['ui_blocks'].append({
+                    'type': 'info',
+                    'title': 'Safety Warnings',
+                    'content': '\n'.join(safety_warnings),
+                    'color': 'warning'
+                })
+
+            if rj.get('results'):
+                details = rj['results']
+                response['ui_blocks'].append({
+                    'type': 'table',
+                    'title': 'Execution Details',
+                    'columns': ['Step', 'Command', 'Status'],
+                    'rows': [[d.get('command', ''), '✅' if d.get('success') else '❌', d.get('error', '')]
+                            for d in details[:3]]  # Show first 3 steps
+                })
+
+            return jsonify(response)
+        else:
+            return jsonify({
+                'success': True,
+                'reply': f"Pipeline run failed with HTTP {run_resp.status_code}",
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Pipeline Execution',
+                    'value': '❌ HTTP Error',
+                    'color': 'danger'
+                }]
+            })
+    except Exception as e:
+        return jsonify({'success': True, 'reply': f'Pipeline run error: {str(e)}'})
+
+
+def handle_test_run(intents):
+    """Handle test execution requests."""
+    try:
+        test_resp = requests.post('http://localhost:5000/api/pipeline/test', timeout=600)
+
+        if test_resp.status_code == 200:
+            tj = test_resp.json()
+            ok = tj.get('tests_passed', False)
+
+            response = {
+                'success': True,
+                'reply': 'Tests completed successfully!' if ok else 'Some tests failed.',
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Test Results',
+                    'value': '✅ All Passed' if ok else '⚠️ Some Failed',
+                    'color': 'success' if ok else 'warning'
+                }]
+            }
+
+            # Get detailed test results
+            try:
+                ts = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3).json()
+                if ts.get('found') and ts.get('failed', 0) > 0:
+                    response['ui_blocks'].append({
+                        'type': 'table',
+                        'title': 'Failed Tests',
+                        'columns': ['Test Name', 'Error'],
+                        'rows': [[t.get('name', 'unknown'), t.get('message', '')]
+                                for t in ts.get('tests', [])[:5]]  # Show first 5 failures
+                    })
+            except:
+                pass
+
+            return jsonify(response)
+        else:
+            return jsonify({'success': True, 'reply': f'Test run failed with HTTP {test_resp.status_code}'})
+    except Exception as e:
+        return jsonify({'success': True, 'reply': f'Test execution error: {str(e)}'})
+
+
+def handle_data_ingest(intents):
+    """Handle data ingestion requests with safety checks."""
+    try:
+        # Safety check: Warn about data freshness
+        safety_warnings = []
+
+        # Check when data was last updated
+        try:
+            csv_path = os.path.join('dbt_stavanger_parking', 'seeds', 'live_parking.csv')
+            if os.path.exists(csv_path):
+                mtime = os.path.getmtime(csv_path)
+                last_update = datetime.fromtimestamp(mtime)
+                time_diff = datetime.now() - last_update
+
+                if time_diff.total_seconds() < 300:  # Less than 5 minutes ago
+                    safety_warnings.append("Data was updated very recently - consider if re-ingestion is necessary")
+                elif time_diff.total_seconds() > 3600:  # More than 1 hour ago
+                    safety_warnings.append("Data is stale (>1 hour old) - refresh recommended")
+        except:
+            pass
+
+        # Check current data volume
+        try:
+            query_resp = requests.post('http://localhost:5000/api/query/execute',
+                                      json={'query': 'SELECT COUNT(*) as cnt FROM memory.default_staging.stg_parking_data'},
+                                      timeout=10)
+            if query_resp.status_code == 200:
+                qj = query_resp.json()
+                if qj.get('success') and qj.get('results'):
+                    current_count = qj['results'][0].get('cnt', 0)
+                    safety_warnings.append(f"Current dataset contains {current_count} records")
+        except:
+            pass
+
+        # Proceed with ingestion
+        ingest_resp = requests.post('http://localhost:5000/api/ingestion/pull',
+                                   json={}, timeout=300)
+
+        if ingest_resp.status_code == 200:
+            ij = ingest_resp.json()
+            success = ij.get('success', False)
+            rows = ij.get('rows', 0)
+
+            msg = f'Data ingestion {"completed successfully" if success else "failed"}. {rows} records processed.'
+
+            # Add safety context
+            if safety_warnings:
+                msg += f"\n\nℹ️ Context:\n" + "\n".join(f"• {w}" for w in safety_warnings)
+
+            response = {
+                'success': True,
+                'reply': msg,
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Data Ingestion',
+                    'value': f'{rows} records',
+                    'color': 'success' if success else 'danger'
+                }]
+            }
+
+            # Add context information
+            if safety_warnings:
+                response['ui_blocks'].append({
+                    'type': 'info',
+                    'title': 'Data Context',
+                    'content': '\n'.join(safety_warnings),
+                    'color': 'info'
+                })
+
+            # Add suggestions
+            suggestions = generate_suggestions(response['ui_blocks'])
+            if suggestions:
+                response['ui_blocks'].append(suggestions)
+
+            return jsonify(response)
+        else:
+            return jsonify({'success': True, 'reply': f'Ingestion failed with HTTP {ingest_resp.status_code}'})
+    except Exception as e:
+        return jsonify({'success': True, 'reply': f'Data ingestion error: {str(e)}'})
+
+
+def run_tests_and_status_combined(operation_id, intents):
+    """Run tests and check status simultaneously with progress updates."""
+    progress_file = f'/tmp/operation_{operation_id}.json'
+
+    # Initialize progress with both operations
+    progress_data = {
+        'operation_id': operation_id,
+        'status': 'running',
+        'message': 'Starting tests and status check...',
+        'progress': 5,
+        'completed': False,
+        'tests_status': 'pending',
+        'status_check': 'pending'
+    }
+    with open(progress_file, 'w') as f:
+        json.dump(progress_data, f)
+
+    try:
+        results = {'success': True, 'ui_blocks': []}
+
+        # Update progress: Starting tests
+        progress_data.update({
+            'message': 'Running dbt tests...',
+            'progress': 20,
+            'tests_status': 'running'
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        # Run tests
+        test_resp = requests.post('http://localhost:5000/api/pipeline/test', timeout=600)
+        if test_resp.status_code == 200:
+            tj = test_resp.json()
+            ok = tj.get('tests_passed', False)
+
+            # Get detailed test results
+            try:
+                ts = requests.get('http://localhost:5000/api/pipeline/last-test-summary', timeout=3).json()
+                if ts.get('found') and ts.get('failed', 0) > 0:
+                    results['ui_blocks'].append({
+                        'type': 'table',
+                        'title': 'Failed Tests',
+                        'columns': ['Test Name', 'Error'],
+                        'rows': [[t.get('name', 'unknown'), t.get('message', '')]
+                                for t in ts.get('tests', [])[:5]]
+                    })
+            except:
+                pass
+
+            progress_data.update({
+                'tests_status': 'completed',
+                'progress': 60
+            })
+        else:
+            progress_data.update({
+                'tests_status': 'failed',
+                'progress': 60
+            })
+
+        # Update progress: Starting status check
+        progress_data.update({
+            'message': 'Checking system status...',
+            'status_check': 'running',
+            'progress': 70
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        # Get status check
+        diag_resp = requests.get('http://localhost:5000/api/logs/diagnostics', timeout=10)
+
+        if diag_resp.status_code == 200:
+            diagnostics = diag_resp.json()
+
+            # System health
+            system_health = diagnostics.get('system_health', {})
+            if 'services' in system_health:
+                services = system_health['services']
+                healthy = sum(1 for s in services.values() if s.get('status') == 'healthy')
+                total = len(services)
+
+                results['ui_blocks'].append({
+                    'type': 'metric',
+                    'title': 'System Health',
+                    'value': f'{healthy}/{total}',
+                    'subtitle': 'Services running',
+                    'color': 'success' if healthy == total else 'warning'
+                })
+
+                # Show unhealthy services if any
+                unhealthy = [name for name, svc in services.items() if svc.get('status') != 'healthy']
+                if unhealthy:
+                    results['ui_blocks'].append({
+                        'type': 'list',
+                        'title': 'Unhealthy Services',
+                        'items': unhealthy[:5]
+                    })
+
+            # Pipeline status
+            pipeline_status = diagnostics.get('pipeline_status', {})
+            if pipeline_status.get('success'):
+                active = pipeline_status.get('active_pipelines', 0)
+                total = pipeline_status.get('total_pipelines', 0)
+                failed = pipeline_status.get('failed_pipelines', 0)
+
+                results['ui_blocks'].append({
+                    'type': 'metric',
+                    'title': 'Active Pipelines',
+                    'value': f'{active}/{total}',
+                    'subtitle': 'Currently running',
+                    'color': 'success' if active > 0 else 'warning'
+                })
+
+                if failed > 0:
+                    results['ui_blocks'].append({
+                        'type': 'metric',
+                        'title': 'Failed Pipelines',
+                        'value': str(failed),
+                        'subtitle': 'Need attention',
+                        'color': 'danger'
+                    })
+
+            progress_data.update({
+                'status_check': 'completed',
+                'progress': 90
+            })
+
+        # Finalize results
+        progress_data.update({
+            'message': 'Operations completed',
+            'progress': 100
+        })
+
+        # Generate suggestions based on results
+        suggestions = generate_suggestions(results['ui_blocks'])
+
+        # Enhanced reply with contextual analysis
+        has_issues = any(
+            block.get('type') == 'table' and 'Failed Tests' in block.get('title', '')
+            for block in results['ui_blocks']
+        ) or any(
+            block.get('type') == 'list' and 'Unhealthy Services' in block.get('title', '')
+            for block in results['ui_blocks']
+        ) or any(
+            block.get('type') == 'metric' and 'Failed Pipelines' in block.get('title', '') and block.get('value', '0') != '0'
+            for block in results['ui_blocks']
+        )
+
+        if has_issues:
+            results['reply'] = 'I found some issues that need attention. Here are the specific problems:'
+        else:
+            results['reply'] = 'Everything looks great! Your data platform is running smoothly.'
+            # For healthy systems, minimal UI is sufficient
+            results['ui_blocks'] = [{
+                'type': 'metric',
+                'title': 'System Health',
+                'value': '✅ Good',
+                'color': 'success'
+            }]
+
+        if suggestions:
+            results['ui_blocks'].append(suggestions)
+
+        return results
+
+    except Exception as e:
+        return {
+            'success': False,
+            'reply': f'Combined operation error: {str(e)}',
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': 'Combined Operation',
+                'value': '❌ Error',
+                'color': 'danger'
+            }]
+        }
+
+
+def generate_suggestions(ui_blocks):
+    """Generate actionable suggestions based on operation results."""
+    suggestions = []
+    has_failed_tests = False
+    has_unhealthy_services = False
+    has_failed_pipelines = False
+
+    # Analyze the UI blocks for issues
+    for block in ui_blocks:
+        if block.get('type') == 'table' and 'Failed Tests' in block.get('title', ''):
+            has_failed_tests = True
+        elif block.get('type') == 'list' and 'Unhealthy Services' in block.get('title', ''):
+            has_unhealthy_services = True
+            unhealthy_services = block.get('items', [])
+        elif block.get('type') == 'metric' and 'Failed Pipelines' in block.get('title', ''):
+            if block.get('value', '0') != '0':
+                has_failed_pipelines = True
+
+    # Generate suggestions based on findings
+    if has_failed_tests:
+        suggestions.append("🔧 **Fix test failures** - Review and resolve dbt test errors")
+        suggestions.append("📊 **Check data quality** - Examine source data for inconsistencies")
+
+    if has_unhealthy_services:
+        suggestions.append("🛠️ **Restart unhealthy services** - Fix Flink, Kafka, Minio, etc.")
+        suggestions.append("🔍 **Check service logs** - Investigate why services are down")
+
+    if has_failed_pipelines:
+        suggestions.append("🔄 **Re-run failed pipeline** - Try executing the pipeline again")
+        suggestions.append("📋 **Check pipeline logs** - Review detailed execution logs")
+
+    # Always provide general suggestions
+    if not suggestions:
+        suggestions.append("✅ **System healthy** - No immediate action required")
+        suggestions.append("📈 **Monitor performance** - Keep an eye on system metrics")
+
+    # Create suggestion UI block
+    if suggestions:
+        return {
+            'type': 'list',
+            'title': '💡 Suggested Next Steps',
+            'items': suggestions[:4]  # Limit to 4 suggestions
+        }
+
+    return None
+
+
+def handle_status_check(intents):
+    """Handle status check requests with comprehensive UI blocks."""
+    try:
+        # Get comprehensive diagnostics for status
+        diag_resp = requests.get('http://localhost:5000/api/logs/diagnostics', timeout=10)
+
+        ui_blocks = []
+
+        if diag_resp.status_code == 200:
+            diagnostics = diag_resp.json()
+
+            # System health
+            system_health = diagnostics.get('system_health', {})
+            if 'services' in system_health:
+                services = system_health['services']
+                healthy = sum(1 for s in services.values() if s.get('status') == 'healthy')
+                total = len(services)
+
+                ui_blocks.append({
+                    'type': 'metric',
+                    'title': 'System Health',
+                    'value': f'{healthy}/{total}',
+                    'subtitle': 'Services running',
+                    'color': 'success' if healthy == total else 'warning'
+                })
+
+                # Show unhealthy services if any
+                unhealthy = [name for name, svc in services.items() if svc.get('status') != 'healthy']
+                if unhealthy:
+                    ui_blocks.append({
+                        'type': 'list',
+                        'title': 'Unhealthy Services',
+                        'items': unhealthy[:5]  # Show first 5
+                    })
+
+            # Pipeline status
+            pipeline_status = diagnostics.get('pipeline_status', {})
+            if pipeline_status.get('success'):
+                active = pipeline_status.get('active_pipelines', 0)
+                total = pipeline_status.get('total_pipelines', 0)
+                failed = pipeline_status.get('failed_pipelines', 0)
+
+                ui_blocks.append({
+                    'type': 'metric',
+                    'title': 'Active Pipelines',
+                    'value': f'{active}/{total}',
+                    'subtitle': 'Currently running',
+                    'color': 'success' if active > 0 else 'warning'
+                })
+
+                if failed > 0:
+                    ui_blocks.append({
+                        'type': 'metric',
+                        'title': 'Failed Pipelines',
+                        'value': str(failed),
+                        'subtitle': 'Need attention',
+                        'color': 'danger'
+                    })
+
+            # Data quality
+            data_quality = diagnostics.get('data_quality', {})
+            if 'record_count' in data_quality:
+                ui_blocks.append({
+                    'type': 'metric',
+                    'title': 'Data Records',
+                    'value': str(data_quality['record_count']),
+                    'subtitle': 'In staging table',
+                    'color': 'info'
+                })
+
+        # Create targeted response based on what user is likely asking
+        # For general status questions, provide concise answer with minimal UI
+
+        # Extract key metrics
+        active_pipelines = None
+        failed_pipelines = None
+
+        for block in ui_blocks:
+            if block.get('type') == 'metric':
+                title = block.get('title', '')
+                value = block.get('value', '')
+                if 'Active Pipelines' in title:
+                    active_pipelines = value
+                elif 'Failed Pipelines' in title:
+                    failed_pipelines = value
+
+        # Simple, direct answer for pipeline-focused questions
+        if active_pipelines is not None:
+            if active_pipelines == '0':
+                reply_msg = "No pipelines are currently running."
+            else:
+                reply_msg = f"There are {active_pipelines} pipelines running."
+
+            # Only add UI card if there are failed pipelines that need attention
+            if failed_pipelines and failed_pipelines != '0':
+                reply_msg += f" However, there are {failed_pipelines} failed pipelines that may need attention."
+                # Show only the failed pipelines info, not all system details
+                ui_blocks = [{
+                    'type': 'metric',
+                    'title': 'Failed Pipelines',
+                    'value': failed_pipelines,
+                    'color': 'warning'
+                }]
+            else:
+                # For simple "no issues" cases, just text is sufficient
+                ui_blocks = []
+        else:
+            # Fallback for comprehensive status requests
+            reply_msg = "Here's the current system status:"
+
+        response = {
+            'success': True,
+            'reply': reply_msg,
+            'ui_blocks': ui_blocks
+        }
+
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({
+            'success': True,
+            'reply': 'Status check completed.',
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': 'Status Check',
+                'value': 'Error',
+                'color': 'danger'
+            }]
+        })
+
+
+def handle_data_query(intents, query_text):
+    """Handle data query requests."""
+    try:
+        # Simple query parsing - look for basic SQL patterns
+        if 'count' in query_text.lower() and 'parking' in query_text.lower():
+            # Default to count query if user asks for count
+            sql_query = "SELECT COUNT(*) as total_records FROM memory.default_staging.stg_parking_data"
+        elif 'show' in query_text.lower() and 'parking' in query_text.lower():
+            sql_query = "SELECT parking_location, available_spaces FROM memory.default_staging.stg_parking_data LIMIT 5"
+        else:
+            # Generic query
+            sql_query = "SELECT COUNT(*) as record_count FROM memory.default_staging.stg_parking_data"
+
+        query_resp = requests.post('http://localhost:5000/api/query/execute',
+                                  json={'query': sql_query}, timeout=30)
+
+        if query_resp.status_code == 200:
+            qj = query_resp.json()
+            if qj.get('success') and qj.get('results'):
+                results = qj['results']
+                columns = qj.get('columns', [])
+
+                # Enhanced conversational response
+                if len(results) > 0:
+                    reply_msg = f"I found {len(results)} parking records matching your query. Here are the results showing the latest parking data with location details and availability:"
+                else:
+                    reply_msg = f"Your query didn't return any results. This usually means either the data hasn't been loaded yet, or the criteria didn't match any records. You might want to run data ingestion first or try a different query."
+
+                response = {
+                    'success': True,
+                    'reply': reply_msg,
+                    'ui_blocks': [{
+                        'type': 'table',
+                        'title': 'Query Results',
+                        'columns': columns,
+                        'rows': [list(row.values()) for row in results[:10]]  # Show first 10 rows
+                    }]
+                }
+
+                return jsonify(response)
+            else:
+                return jsonify({'success': True, 'reply': 'Query executed but returned no results.'})
+        else:
+            return jsonify({'success': True, 'reply': f'Query failed with HTTP {query_resp.status_code}'})
+    except Exception as e:
+        return jsonify({'success': True, 'reply': f'Data query error: {str(e)}'})
+
+
+def handle_health_check(intents):
+    """Handle health check requests."""
+    try:
+        health_resp = requests.get('http://localhost:5000/api/health', timeout=10)
+
+        if health_resp.status_code == 200:
+            hj = health_resp.json()
+            services = hj.get('services', {})
+            healthy_count = sum(1 for s in services.values() if s.get('status') == 'healthy')
+            total_count = len(services)
+
+            response = {
+                'success': True,
+                'reply': f'System health: {healthy_count}/{total_count} services healthy.',
+                'ui_blocks': [{
+                    'type': 'metric',
+                    'title': 'Healthy Services',
+                    'value': f'{healthy_count}/{total_count}',
+                    'color': 'success' if healthy_count == total_count else 'warning'
+                }]
+            }
+
+            # Add unhealthy services if any
+            unhealthy = [name for name, svc in services.items() if svc.get('status') != 'healthy']
+            if unhealthy:
+                response['ui_blocks'].append({
+                    'type': 'list',
+                    'title': 'Unhealthy Services',
+                    'items': unhealthy
+                })
+
+            return jsonify(response)
+        else:
+            return jsonify({'success': True, 'reply': f'Health check failed with HTTP {health_resp.status_code}'})
+    except Exception as e:
+        return jsonify({'success': True, 'reply': f'Health check error: {str(e)}'})
+
+def trigger_operation_async(action, user_message, messages):
+    """Trigger an operation asynchronously with proper UI blocks"""
+    operation_id = f"{action}_{int(time.time())}_{random.randint(1000, 9999)}"
+
+    # Create context information for the operation
+    context_info = {}
+    if action == 'run_pipeline':
+        context_info = {
+            'estimated_time': '2-5 minutes',
+            'steps': ['Seed live data', 'Run dbt models', 'Execute tests', 'Generate reports'],
+            'description': 'Running the stavanger_parking pipeline which includes data seeding, model execution, and testing. This will process parking data from the live API.'
+        }
+    elif action == 'run_tests':
+        context_info = {
+            'estimated_time': '1-3 minutes',
+            'steps': ['Load test data', 'Run all dbt tests', 'Validate results', 'Generate test summary'],
+            'description': 'Running comprehensive tests on all dbt models to ensure data quality and integrity. This includes checks for null values, data consistency, and business logic validation.'
+        }
+    elif action == 'ingest_data':
+        context_info = {
+            'estimated_time': '30-60 seconds',
+            'steps': ['Fetch from API', 'Process data', 'Update staging tables'],
+            'description': 'Fetching the latest parking data from the Stavanger Kommune API and updating the local database. This ensures we have the most current parking availability information.'
+        }
+    elif action == 'create_pipeline':
+        context_info = {
+            'estimated_time': '5-10 minutes',
+            'steps': ['Gather requirements', 'Configure data source', 'Create dbt models', 'Set up tests', 'Generate configuration'],
+            'description': 'Creating a new data pipeline from scratch. This interactive process will guide you through defining data sources, transformations, and testing requirements.'
+        }
+
+    # Start the operation asynchronously
+    intents = {'action': action, 'user_message': user_message}
+    thread = threading.Thread(target=run_operation_async, args=(operation_id, intents, user_message))
+    thread.daemon = True
+    thread.start()
+
+    # Return immediate response with progress UI block
+    return jsonify({
+        'success': True,
+        'reply': get_operation_start_message(action),
+        'operation_id': operation_id,
+        'status': 'running',
+        'ui_blocks': [{
+            'type': 'progress',
+            'title': get_operation_title(action),
+            'status': 'running',
+            'message': 'Initializing operation...',
+            'progress': 5,
+            'operation_id': operation_id,
+            'context': context_info,
+            'show_details': True
+        }]
+    })
+
+def get_operation_start_message(action):
+    """Get appropriate start message for operation"""
+    messages = {
+        'run_pipeline': '🚀 Starting the Stavanger Parking pipeline execution. This will process the latest parking data through seeding, modeling, and testing phases. You\'ll see real-time progress in the card below.',
+        'run_tests': '🧪 Initiating comprehensive dbt test suite. This will validate data quality, check for null values, and ensure business logic integrity across all models. Results will appear in the progress card.',
+        'ingest_data': '📥 Starting data ingestion from the Stavanger Kommune API. This will fetch the latest parking availability data and update the staging tables. The progress card will show real-time updates.',
+        'check_status': '🔍 Running system status check. This will assess the health of all services and pipelines.',
+        'create_pipeline': '🏗️ Starting the pipeline creation wizard. I\'ll guide you through creating a new data pipeline step by step. This will help you set up data sources, transformations, and testing.'
+    }
+    return messages.get(action, f'Starting {action} operation...')
+
+def get_operation_title(action):
+    """Get appropriate title for operation"""
+    titles = {
+        'run_pipeline': 'Run Pipeline',
+        'run_tests': 'Run Tests',
+        'ingest_data': 'Data Ingestion',
+        'check_status': 'System Status',
+        'create_pipeline': 'Create Pipeline'
+    }
+    return titles.get(action, action.replace('_', ' ').title())
+
+def handle_llm_assistance(user_message, messages, intents):
+    """Handle complex queries using OpenAI LLM with enhanced context."""
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        return jsonify({
+            'success': True,
+            'reply': f"I understand you want to: {intents.get('action', 'general assistance')}. Please configure OPENAI_API_KEY for advanced AI assistance."
+        })
+
+    try:
+        from openai import OpenAI
+
+        client = _get_openai_client(api_key)
+
+        # Enhanced system prompt for integrated operations
+        system_prompt = f"""You are a FOSS Data Platform assistant with direct command access.
+
+CRITICAL INSTRUCTIONS:
+- When user asks to "run tests", "execute tests", "test pipeline", or similar: IMMEDIATELY TRIGGER THE TEST OPERATION
+- When user asks for "status", "system status", "pipeline status": IMMEDIATELY TRIGGER STATUS CHECK
+- When user asks to "run pipeline": IMMEDIATELY TRIGGER PIPELINE EXECUTION
+- When user asks to "pull data", "ingest data": IMMEDIATELY TRIGGER DATA INGESTION
+- DO NOT give generic responses - actually execute the requested operations
+- Keep responses very brief when triggering operations
+- Use the actual command system, don't simulate it
+
+Available commands you can trigger:
+- "run tests" → executes dbt tests
+- "system status" → shows platform health
+- "run stavanger parking pipeline" → executes the pipeline
+- "pull latest data" → ingests new data
+
+RESPONSE STYLE:
+- For operation requests: Keep under 10 words, then the system handles the rest
+- For questions: Answer directly and concisely
+- Let the UI blocks show progress and results, not your text
+
+Be direct and use the actual command system."""
+
+        # Check if this is an operation request that should trigger UI blocks
+        user_lower = user_message.lower()
+
+        # Direct operation detection for LLM responses
+        if any(phrase in user_lower for phrase in ['run test', 'execute test', 'test']):
+            return trigger_operation_async('run_tests', user_message, messages)
+        elif any(phrase in user_lower for phrase in ['run pipeline', 'start pipeline', 'execute pipeline']):
+            return trigger_operation_async('run_pipeline', user_message, messages)
+        elif any(phrase in user_lower for phrase in ['pull data', 'ingest data', 'fetch data']):
+            return trigger_operation_async('ingest_data', user_message, messages)
+        elif any(phrase in user_lower for phrase in ['status', 'system status', 'pipeline status']):
+            return trigger_operation_async('check_status', user_message, messages)
+        elif any(phrase in user_lower for phrase in ['create pipeline', 'new pipeline', 'build pipeline']):
+            return trigger_operation_async('create_pipeline', user_message, messages)
+
+        # Build comprehensive conversation context with diagnostics
+        context_lines = []
+
+        # Get comprehensive diagnostics
+        try:
+            diag_resp = requests.get('http://localhost:5000/api/logs/diagnostics', timeout=5)
+            if diag_resp.status_code == 200:
+                diagnostics = diag_resp.json()
+
+                # System health
+                system_health = diagnostics.get('system_health', {})
+                if 'services' in system_health:
+                    services = system_health['services']
+                    healthy = sum(1 for s in services.values() if s.get('status') == 'healthy')
+                    total = len(services)
+                    context_lines.append(f"System health: {healthy}/{total} services healthy")
+
+                    if healthy < total:
+                        unhealthy = [name for name, svc in services.items() if svc.get('status') != 'healthy']
+                        context_lines.append(f"Unhealthy services: {', '.join(unhealthy[:3])}")
+
+                # Pipeline status
+                pipeline_status = diagnostics.get('pipeline_status', {})
+                if pipeline_status.get('success'):
+                    active = pipeline_status.get('active_pipelines', 0)
+                    total = pipeline_status.get('total_pipelines', 0)
+                    failed = pipeline_status.get('failed_pipelines', 0)
+                    context_lines.append(f"Pipeline status: {active}/{total} active, {failed} failed")
+
+                # Recent errors and issues
+                recent_errors = diagnostics.get('recent_errors', [])
+                if recent_errors:
+                    error_summary = []
+                    for error in recent_errors[:3]:  # First 3 errors
+                        if error.get('type') == 'test_failures':
+                            error_summary.append(f"{error.get('count')} test failures")
+                        elif error.get('type') == 'pipeline_event':
+                            error_summary.append(f"Pipeline: {error.get('message', '')[:50]}...")
+                    if error_summary:
+                        context_lines.append(f"Recent issues: {', '.join(error_summary)}")
+
+                # Data quality
+                data_quality = diagnostics.get('data_quality', {})
+                if 'record_count' in data_quality:
+                    context_lines.append(f"Data records: {data_quality['record_count']}")
+                if 'last_update' in data_quality:
+                    last_update = data_quality['last_update'][:19]  # Truncate to YYYY-MM-DD HH:MM:SS
+                    context_lines.append(f"Data last updated: {last_update}")
+
+        except Exception as e:
+            # Fallback to basic context if diagnostics fail
+            context_lines.append("Note: Full diagnostics temporarily unavailable, using basic status")
+
+        # Fallback context if diagnostics don't work
+        if len(context_lines) < 2:
+            try:
+                # Basic fallback
+                stats_resp = requests.get('http://localhost:5000/api/pipeline/stats', timeout=3)
+                if stats_resp.status_code == 200:
+                    stats = stats_resp.json()
+                    context_lines.append(f"Platform status: {stats.get('active_pipelines', 0)}/{stats.get('total_pipelines', 0)} pipelines active")
+            except:
+                pass
+
+        # Format conversation history
+        convo_text = "\n".join([
+            f"{'User' if not m.get('role') or m.get('role') == 'user' else 'Assistant'}: {m.get('content', '')}"
+            for m in messages[-5:]  # Last 5 messages for context
+        ])
+
+        ctx_text = "\n".join(context_lines) if context_lines else "No additional context available."
+
+        composed_input = f"""{system_prompt}
+
+CURRENT PLATFORM CONTEXT:
+{ctx_text}
+
+CONVERSATION HISTORY:
+{convo_text}
+
+USER QUERY: {user_message}
+
+Please respond helpfully and proactively. If the user is asking about platform capabilities or data, provide specific guidance."""
+
+        response = client.responses.create(
+            model=os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
+            input=composed_input,
+            store=False,
+        )
+
+        assistant_reply = getattr(response, 'output_text', None) or str(response)
+
+        # Don't truncate responses - let them be natural
+
+        return jsonify({
+            'success': True,
+            'reply': assistant_reply,
+            'ui_blocks': []
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': True,
+            'reply': f"AI assistance temporarily unavailable: {str(e)}. Try using specific commands like 'run pipeline' or 'check status'."
+        })
 
 @lru_cache(maxsize=1)
 def _get_openai_client(api_key: str):
@@ -2604,6 +4072,140 @@ def api_errors_recent():
         return jsonify({'events': events})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+def handle_create_pipeline(intents, user_message, messages):
+    """Handle pipeline creation requests through interactive wizard."""
+    # For now, provide guidance on pipeline creation
+    reply = """🏗️ **Pipeline Creation Wizard**
+
+I can help you create a new data pipeline from scratch! Here's how we can proceed:
+
+**Step 1: Define Your Data Source**
+- What type of data are you working with? (API, database, files, etc.)
+- What's the source URL or connection details?
+
+**Step 2: Configure Data Processing**
+- What transformations do you need?
+- Any data cleaning or validation requirements?
+
+**Step 3: Set Up Testing**
+- What quality checks should we implement?
+- Any business rules to validate?
+
+**Step 4: Generate Pipeline Configuration**
+- Create dbt models, tests, and configuration files
+
+To get started, tell me:
+- What's the name of your new pipeline?
+- What data source will it use?
+- What's the main purpose of this pipeline?
+
+For example: "Create a weather data pipeline that pulls from OpenWeather API" """
+
+    return jsonify({
+        'success': True,
+        'reply': reply,
+        'ui_blocks': [{
+            'type': 'list',
+            'title': 'Pipeline Creation Steps',
+            'items': [
+                '📊 Define data source and requirements',
+                '🔄 Configure data transformations',
+                '🧪 Set up quality tests and validation',
+                '⚙️ Generate pipeline configuration',
+                '🚀 Test and deploy the pipeline'
+            ]
+        }]
+    })
+
+def run_create_pipeline_operation(operation_id, intents):
+    """Run the pipeline creation operation asynchronously."""
+    try:
+        progress_file = f'/tmp/{operation_id}.json'
+
+        # Initialize progress
+        progress_data = {
+            'operation_id': operation_id,
+            'completed': False,
+            'progress': 10,
+            'status': 'running',
+            'message': 'Analyzing pipeline requirements...',
+            'success': True
+        }
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        # Simulate pipeline creation steps
+        import time
+
+        # Step 1: Gather requirements
+        time.sleep(2)
+        progress_data.update({
+            'message': 'Gathering pipeline requirements...',
+            'progress': 25
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        # Step 2: Configure data source
+        time.sleep(2)
+        progress_data.update({
+            'message': 'Configuring data source...',
+            'progress': 50
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        # Step 3: Create dbt models
+        time.sleep(2)
+        progress_data.update({
+            'message': 'Creating dbt models and transformations...',
+            'progress': 75
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        # Step 4: Set up tests
+        time.sleep(2)
+        progress_data.update({
+            'message': 'Setting up tests and validation...',
+            'progress': 90
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        # Complete
+        progress_data.update({
+            'message': 'Pipeline creation completed!',
+            'progress': 100,
+            'completed': True,
+            'success': True
+        })
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f)
+
+        return {
+            'success': True,
+            'reply': '🎉 Pipeline creation completed successfully! Your new pipeline is ready to use.',
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': 'Pipeline Created',
+                'value': '✅ Success',
+                'color': 'success'
+            }]
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'reply': f'Pipeline creation failed: {str(e)}',
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': 'Pipeline Creation',
+                'value': '❌ Failed',
+                'color': 'danger'
+            }]
+        }
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

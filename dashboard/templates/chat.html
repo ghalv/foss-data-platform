@@ -13,6 +13,135 @@
         .message.assistant { background: #ffffff; border: 1px solid #e9ecef; border-radius: 1rem 1rem 1rem 0.25rem; }
         .chat-input { border-radius: 2rem; }
         .chat-actions button { border-radius: 2rem; }
+
+        /* Enhanced progress card animations */
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.95; }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: calc(200px + 100%) 0; }
+        }
+
+        .animated-bg .progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        .completed-step {
+            background-color: #d4edda !important;
+            color: #155724 !important;
+            border: 1px solid #c3e6cb;
+        }
+
+        /* Step indicators */
+        .step-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .step-indicator.completed {
+            background-color: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .step-indicator.current {
+            background-color: #cce7ff;
+            color: #0056b3;
+            border: 2px solid #007bff;
+            animation: pulse-current 1.5s infinite;
+        }
+
+        .step-indicator.pending {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            border: 2px solid #dee2e6;
+        }
+
+        @keyframes pulse-current {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Progress shimmer effect */
+        .progress-shimmer {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* Enhanced UI blocks */
+        .ui-blocks-container {
+            margin-top: 1rem;
+            border-top: 1px solid #e9ecef;
+            padding-top: 1rem;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        /* Make UI blocks wider and more spacious */
+        .ui-blocks-container .mb-2 {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .ui-blocks-container .ui-block-metric,
+        .ui-blocks-container .ui-block-list {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .ui-block-metric {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border: 2px solid transparent !important;
+        }
+
+        .ui-block-metric:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .ui-block-list {
+            border-left: 4px solid #ffc107 !important;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .ui-block-list .list-group-item {
+            padding: 0.5rem 0.75rem;
+            border: none;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .ui-block-list .list-group-item:last-child {
+            border-bottom: none;
+        }
+
         /* Typing dots animation */
         .typing-dots { display: inline-flex; gap: 6px; align-items: center; }
         .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: #adb5bd; opacity: 0.7; animation: typingBounce 1.2s infinite ease-in-out; }
@@ -80,25 +209,235 @@
             sendBtn.disabled = !shouldEnable;
         }
 
-        function appendMessage(role, text) {
+        function appendMessage(role, text, uiBlocks) {
             const row = document.createElement('div');
             row.className = 'd-flex mb-2 ' + (role === 'user' ? 'justify-content-end' : 'justify-content-start');
             const bubble = document.createElement('div');
             bubble.className = 'p-2 message ' + (role === 'user' ? 'user' : 'assistant');
-            if (role === 'assistant') {
-                try {
-                    const html = marked.parse(text || '');
-                    bubble.innerHTML = DOMPurify.sanitize(html);
-                } catch (e) {
+
+            // Add text content
+            if (text) {
+                console.log('Processing text:', text); // Debug
+                if (role === 'assistant') {
+                    try {
+                        // Clean up text formatting and standardize font sizes
+                        let cleanText = text.replace(/\n\s*\n/g, '\n').trim();
+                        const html = marked.parse(cleanText);
+                        let sanitized = DOMPurify.sanitize(html);
+
+                        // Standardize font sizes in markdown content
+                        sanitized = sanitized
+                            .replace(/<h1>/g, '<h1 style="font-size: 1.5rem; margin: 0.5rem 0;">')
+                            .replace(/<h2>/g, '<h2 style="font-size: 1.3rem; margin: 0.4rem 0;">')
+                            .replace(/<h3>/g, '<h3 style="font-size: 1.2rem; margin: 0.3rem 0;">')
+                            .replace(/<h4>/g, '<h4 style="font-size: 1.1rem; margin: 0.3rem 0;">')
+                            .replace(/<h5>/g, '<h5 style="font-size: 1rem; margin: 0.2rem 0;">')
+                            .replace(/<h6>/g, '<h6 style="font-size: 0.95rem; margin: 0.2rem 0;">')
+                            .replace(/<p>/g, '<p style="font-size: 0.95rem; margin: 0.25rem 0; line-height: 1.4;">')
+                            .replace(/<li>/g, '<li style="font-size: 0.9rem; margin: 0.1rem 0;">')
+                            .replace(/<strong>/g, '<strong style="font-weight: 600;">')
+                            .replace(/<em>/g, '<em style="font-style: italic;">');
+
+                        console.log('Generated HTML:', sanitized); // Debug
+                        bubble.innerHTML = sanitized;
+                    } catch (e) {
+                        console.error('Markdown parsing error:', e); // Debug
+                        bubble.textContent = text;
+                    }
+                } else {
                     bubble.textContent = text;
                 }
-            } else {
-                bubble.textContent = text;
             }
+
+            // Add UI blocks if present
+            if (uiBlocks && uiBlocks.length > 0) {
+                console.log('🎨 Rendering UI blocks:', uiBlocks); // Debug
+                const blocksDiv = document.createElement('div');
+                blocksDiv.className = 'mt-3 ui-blocks-container';
+                blocksDiv.style.border = '1px solid #e9ecef';
+                blocksDiv.style.borderRadius = '8px';
+                blocksDiv.style.padding = '1rem';
+                blocksDiv.style.backgroundColor = '#f8f9fa';
+                blocksDiv.style.marginTop = '1rem';
+
+                uiBlocks.forEach((block, index) => {
+                    console.log(`🔧 Creating block ${index}:`, block); // Debug
+                    try {
+                        const blockEl = createUIBlock(block);
+                        if (blockEl) {
+                            console.log(`✅ Adding block ${index} to DOM:`, blockEl); // Debug
+                            blocksDiv.appendChild(blockEl);
+                        } else {
+                            console.error('❌ Failed to create UI block:', block); // Debug
+                            // Create a fallback error block
+                            const errorBlock = document.createElement('div');
+                            errorBlock.className = 'alert alert-danger mt-2';
+                            errorBlock.textContent = `Error creating ${block.type} block`;
+                            blocksDiv.appendChild(errorBlock);
+                        }
+                    } catch (error) {
+                        console.error(`💥 Exception creating block ${index}:`, error);
+                        const errorBlock = document.createElement('div');
+                        errorBlock.className = 'alert alert-danger mt-2';
+                        errorBlock.textContent = `Exception creating ${block.type} block: ${error.message}`;
+                        blocksDiv.appendChild(errorBlock);
+                    }
+                });
+                console.log('🎯 Final blocks container:', blocksDiv); // Debug
+
+                bubble.appendChild(blocksDiv);
+            } else {
+                console.log('📭 No UI blocks to render'); // Debug
+            }
+
             row.appendChild(bubble);
             chatEl.appendChild(row);
             chatEl.scrollTop = chatEl.scrollHeight;
             return row; // return element for optional later updates
+        }
+
+        function createUIBlock(block) {
+            console.log('Creating UI block of type:', block.type, block); // Debug
+            const blockDiv = document.createElement('div');
+            blockDiv.className = 'mb-2 p-2 border rounded';
+            blockDiv.style.backgroundColor = '#ffffff'; // Ensure visibility
+
+            if (block.type === 'progress') {
+                blockDiv.className += ' border-primary bg-light position-relative';
+                blockDiv.setAttribute('data-operation-id', block.operation_id);
+                blockDiv.style.minHeight = '120px';
+
+                const context = block.context || {};
+                const estimatedTime = context.estimated_time || 'Varies';
+                const steps = context.steps || [];
+                const progress = block.progress || 0;
+
+                // Add animated background for running operations
+                const animatedBg = block.status === 'running' ? 'animated-bg' : '';
+
+                // Create dynamic step indicators
+                const stepIndicators = steps.map((step, index) => {
+                    const stepProgress = (100 / steps.length) * index;
+                    const isCompleted = index < Math.floor(progress / (100 / steps.length));
+                    const isCurrent = !isCompleted && index === Math.floor(progress / (100 / steps.length));
+
+                    return `
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="step-indicator ${isCompleted ? 'completed' : isCurrent ? 'current' : 'pending'}">
+                                ${isCompleted ? '✓' : isCurrent ? '⟳' : '○'}
+                            </div>
+                            <span class="ms-2 small ${isCompleted ? 'text-success' : isCurrent ? 'text-primary fw-bold' : 'text-muted'}">
+                                ${step}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+
+                blockDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h6 class="mb-1 fw-bold text-primary">${block.title}</h6>
+                            <div class="small text-muted">⏱️ ${estimatedTime}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="badge ${block.status === 'running' ? 'bg-primary' : block.status === 'completed' ? 'bg-success' : 'bg-danger'} mb-1">
+                                ${block.status === 'running' ? '🔄' : block.status === 'completed' ? '✅' : '❌'}
+                                <span class="ms-1">${block.status === 'running' ? 'Running' : block.status === 'completed' ? 'Done' : 'Error'}</span>
+                            </div>
+                            <div class="small text-muted">${progress}% complete</div>
+                        </div>
+                    </div>
+
+                    <div class="progress mb-3 ${animatedBg}" style="height: 14px; border-radius: 7px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                        <div class="progress-bar bg-${block.status === 'running' ? 'primary' : block.status === 'completed' ? 'success' : 'danger'}"
+                             role="progressbar"
+                             style="width: ${progress}%; border-radius: 7px; transition: width 0.5s ease; position: relative;">
+                            ${block.status === 'running' ? '<div class="progress-shimmer"></div>' : ''}
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="fw-semibold text-dark mb-2">${block.message || 'Initializing...'}</div>
+                        ${steps.length > 0 ? `
+                            <div class="steps-container mt-2">
+                                ${stepIndicators}
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    ${block.show_details && context.description ? `
+                        <div class="small text-muted border-top pt-2 mt-2" style="background: rgba(0,123,255,0.05); padding: 8px; border-radius: 4px;">
+                            <strong>What this does:</strong><br>
+                            ${context.description}
+                        </div>
+                    ` : ''}
+                `;
+
+                // Add CSS animation for running operations
+                if (block.status === 'running') {
+                    blockDiv.style.animation = 'pulse-subtle 2s infinite';
+                }
+            } else if (block.type === 'metric') {
+                console.log('Creating metric block:', block); // Debug
+                blockDiv.className += ` border-${block.color || 'primary'} bg-light ui-block-metric`;
+                blockDiv.style.border = `2px solid var(--bs-${block.color || 'primary'})`;
+                blockDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-${block.color || 'primary'}">${block.title}</div>
+                            ${block.subtitle ? `<div class="small text-muted">${block.subtitle}</div>` : ''}
+                        </div>
+                        <div class="text-end">
+                            <div class="h4 mb-0 text-${block.color || 'primary'} fw-bold">${block.value}</div>
+                            ${block.unit ? `<div class="small text-muted">${block.unit}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+                console.log('Created metric block HTML:', blockDiv.innerHTML); // Debug
+            } else if (block.type === 'table') {
+                blockDiv.className += ' border-info bg-light';
+                blockDiv.innerHTML = `
+                    <h6 class="mb-2 text-info fw-bold">${block.title}</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    ${block.columns.map(col => `<th class="fw-semibold">${col}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${block.rows.map(row =>
+                                    `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`
+                                ).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else if (block.type === 'list') {
+                blockDiv.className += ' border-warning bg-light ui-block-list';
+                blockDiv.innerHTML = `
+                    <h6 class="mb-2 text-warning fw-bold">${block.title}</h6>
+                    <ul class="list-group">
+                        ${block.items.map(item => `<li class="list-group-item d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                            <span>${item}</span>
+                        </li>`).join('')}
+                    </ul>
+                `;
+            } else if (block.type === 'info') {
+                blockDiv.className += ` border-info bg-light`;
+                blockDiv.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        <div>
+                            <strong>${block.title}</strong>
+                            <div class="small text-muted">${block.content}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return blockDiv;
         }
 
         let typingRow = null;
@@ -118,11 +457,173 @@
             typingRow = null;
         }
 
+        // Progress tracking for long-running operations
+        let activeProgressIntervals = new Map();
+
+        function startProgressTracking(operationId, messageEl) {
+            if (activeProgressIntervals.has(operationId)) {
+                clearInterval(activeProgressIntervals.get(operationId));
+            }
+
+            const progressInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/chat/progress/${operationId}`);
+                    if (!response.ok) {
+                        clearInterval(progressInterval);
+                        activeProgressIntervals.delete(operationId);
+                        return;
+                    }
+
+                    const progressData = await response.json();
+
+                    // Update progress UI
+                    const progressBlock = messageEl.querySelector(`[data-operation-id="${operationId}"]`);
+                    if (progressBlock) {
+                        if (progressData.completed) {
+                            // Operation completed - clear interval but keep the card visible
+                            clearInterval(progressInterval);
+                            activeProgressIntervals.delete(operationId);
+
+                            // Update progress card to show completion status
+                            const statusBadge = progressBlock.querySelector('.badge');
+                            const progressBar = progressBlock.querySelector('.progress-bar');
+                            const messageDiv = progressBlock.querySelector('.small.text-muted');
+
+                            if (statusBadge) {
+                                const isSuccess = progressData.success;
+                                statusBadge.textContent = isSuccess ? '✅ Done' : '❌ Failed';
+                                statusBadge.className = `badge bg-${isSuccess ? 'success' : 'danger'}`;
+                            }
+
+                            if (progressBar) {
+                                progressBar.style.width = '100%';
+                                progressBar.setAttribute('aria-valuenow', 100);
+                                progressBar.className = `progress-bar bg-${progressData.success ? 'success' : 'danger'}`;
+                            }
+
+                            if (messageDiv) {
+                                messageDiv.textContent = progressData.success ? 'Operation completed successfully' : 'Operation failed - see details below';
+                            }
+
+                            // Update message with final results
+                            const textEl = messageEl.querySelector('.message');
+                            if (textEl && progressData.reply) {
+                                // If the reply contains new information, append it
+                                if (progressData.reply && progressData.reply !== textEl.textContent) {
+                                    textEl.innerHTML += '<br><br>' + progressData.reply.replace(/\n/g, '<br>');
+                                }
+                            }
+
+                            // Add final results UI blocks if they exist
+                            if (progressData.ui_blocks && progressData.ui_blocks.length > 0) {
+                                const blocksContainer = messageEl.querySelector('.message > div:last-child');
+                                if (blocksContainer) {
+                                    // Keep existing progress block and add new blocks after it
+                                    progressData.ui_blocks.forEach(block => {
+                                        const blockEl = createUIBlock(block);
+                                        if (blockEl) {
+                                            blocksContainer.appendChild(blockEl);
+                                        }
+                                    });
+                                }
+                            }
+
+                            // Update conversation history
+                            const lastAssistantMsg = history[history.length - 1];
+                            if (lastAssistantMsg && lastAssistantMsg.role === 'assistant') {
+                                lastAssistantMsg.content = progressData.reply || lastAssistantMsg.content;
+                            }
+
+                        } else {
+                            // Update progress bar and message
+                            const progressBar = progressBlock.querySelector('.progress-bar');
+                            const statusBadge = progressBlock.querySelector('.badge');
+                            const messageDiv = progressBlock.querySelector('.small.text-muted');
+
+                            if (progressBar) {
+                                progressBar.style.width = `${progressData.progress || 0}%`;
+                                progressBar.setAttribute('aria-valuenow', progressData.progress || 0);
+                            }
+
+                            if (statusBadge) {
+                                const status = progressData.status;
+                                statusBadge.textContent = status === 'running' ? '🔄 Running' :
+                                                         status === 'completed' ? '✅ Done' : '❌ Error';
+                                statusBadge.className = `badge bg-${status === 'running' ? 'primary' :
+                                                                       status === 'completed' ? 'success' : 'danger'}`;
+                            }
+
+                            if (messageDiv) {
+                                messageDiv.textContent = progressData.message || 'Processing...';
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error polling progress:', error);
+
+                    // Count consecutive errors
+                    if (!window.progressErrors) window.progressErrors = new Map();
+                    const errorCount = (window.progressErrors.get(operationId) || 0) + 1;
+                    window.progressErrors.set(operationId, errorCount);
+
+                    // If we've had 3 consecutive errors, show error state
+                    if (errorCount >= 3) {
+                        clearInterval(progressInterval);
+                        activeProgressIntervals.delete(operationId);
+                        window.progressErrors.delete(operationId);
+
+                        // Update UI to show connection error
+                        const progressBlock = messageEl.querySelector(`[data-operation-id="${operationId}"]`);
+                        if (progressBlock) {
+                            const statusBadge = progressBlock.querySelector('.badge');
+                            const messageDiv = progressBlock.querySelector('.small.text-muted');
+
+                            if (statusBadge) {
+                                statusBadge.textContent = '🔌 Connection Error';
+                                statusBadge.className = 'badge bg-danger';
+                            }
+
+                            if (messageDiv) {
+                                messageDiv.textContent = 'Lost connection to server. Please refresh and try again.';
+                            }
+                        }
+                    }
+                }
+            }, 2000); // Poll every 2 seconds
+
+            activeProgressIntervals.set(operationId, progressInterval);
+
+            // Auto-cleanup after 10 minutes with timeout warning
+            let timeoutWarningShown = false;
+            setTimeout(() => {
+                if (activeProgressIntervals.has(operationId)) {
+                    clearInterval(activeProgressIntervals.get(operationId));
+                    activeProgressIntervals.delete(operationId);
+
+                    // Show timeout message
+                    const progressBlock = messageEl.querySelector(`[data-operation-id="${operationId}"]`);
+                    if (progressBlock) {
+                        const statusBadge = progressBlock.querySelector('.badge');
+                        const messageDiv = progressBlock.querySelector('.small.text-muted');
+
+                        if (statusBadge) {
+                            statusBadge.textContent = '⏱️ Timeout';
+                            statusBadge.className = 'badge bg-warning';
+                        }
+
+                        if (messageDiv) {
+                            messageDiv.textContent = 'Operation timed out after 10 minutes. Please try again.';
+                        }
+                    }
+                }
+            }, 600000); // 10 minutes
+        }
+
         async function sendMessage() {
             if (isThinking) return; // block while processing
             const text = inputEl.value.trim();
             if (!text) return;
-            appendMessage('user', text);
+            appendMessage('user', text, undefined);
             history.push({ role: 'user', content: text });
             inputEl.value = '';
             isThinking = true;
@@ -143,7 +644,7 @@
                 if (!res.ok) {
                     hideTyping();
                     const errText = await res.text();
-                    appendMessage('assistant', `HTTP ${res.status}: ${errText.substring(0, 200)}`);
+                    appendMessage('assistant', `HTTP ${res.status}: ${errText.substring(0, 200)}`, undefined);
                     return;
                 }
                 let data;
@@ -152,15 +653,20 @@
                 } catch (e) {
                     hideTyping();
                     const raw = await res.text();
-                    appendMessage('assistant', `Non-JSON response: ${raw.substring(0, 200)}`);
+                    appendMessage('assistant', `Non-JSON response: ${raw.substring(0, 200)}`, undefined);
                     return;
                 }
                 hideTyping();
                 if (data.success) {
-                    appendMessage('assistant', data.reply);
+                    const messageEl = appendMessage('assistant', data.reply, data.ui_blocks);
                     history.push({ role: 'assistant', content: data.reply });
+
+                    // Handle long-running operations with progress tracking
+                    if (data.operation_id) {
+                        startProgressTracking(data.operation_id, messageEl);
+                    }
                 } else {
-                    appendMessage('assistant', 'Error: ' + (data.error || 'Unknown error'));
+                    appendMessage('assistant', 'Error: ' + (data.error || 'Unknown error'), undefined);
                 }
             }
             try {
@@ -172,7 +678,7 @@
                     await doRequest();
                 } catch (e2) {
                     hideTyping();
-                    appendMessage('assistant', 'Network error: ' + (e2.message || 'request failed'));
+                    appendMessage('assistant', 'Network error: ' + (e2.message || 'request failed'), undefined);
                 }
             } finally {
                 isThinking = false;
@@ -191,8 +697,29 @@
         inputEl.addEventListener('input', () => updateSendState());
         // no clear button
 
+        // UI blocks test - uncomment to debug
+        /*
+        setTimeout(() => {
+            const testBlocks = [
+                {
+                    type: 'metric',
+                    title: 'System Health',
+                    value: '9/16',
+                    subtitle: 'Services running',
+                    color: 'warning'
+                },
+                {
+                    type: 'list',
+                    title: 'Unhealthy Services',
+                    items: ['flink-taskmanager', 'kafka', 'minio']
+                }
+            ];
+            appendMessage('assistant', 'Test UI blocks:', testBlocks);
+        }, 2000);
+        */
+
         // Warm welcome message
-        appendMessage('assistant', 'Hi! I can help you manage pipelines, query data, and check health. Try: "Run the Stavanger Parking pipeline".');
+        appendMessage('assistant', 'Ready to help with your data platform. Try: "run stavanger parking pipeline", "system status", or "pull latest data".', undefined);
 
         // Autofocus input on page load
         document.addEventListener('DOMContentLoaded', function () {
