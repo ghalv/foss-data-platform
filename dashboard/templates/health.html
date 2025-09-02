@@ -99,26 +99,26 @@
         <!-- Health Summary -->
         <div class="row mb-4">
             <div class="col-md-4">
-                <div class="card health-summary">
+                <div class="card health-summary border-0 shadow-sm">
                     <div class="card-body text-center">
-                        <h3 class="mb-2">{{ services.values() | selectattr('status', 'equalto', 'healthy') | list | length }}/{{ services|length }}</h3>
-                        <p class="mb-0">Services Healthy</p>
+                        <div class="small text-white-50">Healthy Services</div>
+                        <div class="display-6 fw-bold">{{ services.values() | selectattr('status', 'equalto', 'healthy') | list | length }}/{{ services|length }}</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
                     <div class="card-body text-center">
-                        <h3 class="mb-2">{{ services.values() | selectattr('status', 'equalto', 'warning') | list | length }}</h3>
-                        <p class="mb-0">Services Warning</p>
+                        <div class="small text-white-50">Warnings</div>
+                        <div class="display-6 fw-bold">{{ services.values() | selectattr('status', 'equalto', 'warning') | list | length }}</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
                     <div class="card-body text-center">
-                        <h3 class="mb-2">{{ services.values() | selectattr('status', 'equalto', 'error') | list | length }}</h3>
-                        <p class="mb-0">Services Error</p>
+                        <div class="small text-white-50">Errors</div>
+                        <div class="display-6 fw-bold">{{ services.values() | selectattr('status', 'equalto', 'error') | list | length }}</div>
                     </div>
                 </div>
             </div>
@@ -164,177 +164,48 @@
             </div>
         </div>
 
-        <!-- Detailed Service Status -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-database"></i> Data Platform Services
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="service-list">
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-search text-primary"></i> Trino Query Engine</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-hdd text-success"></i> MinIO Object Storage</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-snowflake text-info"></i> Apache Iceberg</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-database text-warning"></i> Hive Metastore</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-success text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-cogs"></i> Pipeline & Orchestration
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="service-list">
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-project-diagram text-primary"></i> Dagster</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-code text-success"></i> JupyterLab</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-database text-info"></i> dbt</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-docker text-warning"></i> Portainer</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Removed static duplicate service blocks (replaced by summary grid above) -->
 
-        <!-- Streaming Services Status -->
+        <!-- Removed static streaming service blocks (covered by dynamic service grid) -->
+
+        <!-- Removed static monitoring/infrastructure blocks (covered by dynamic service grid) -->
+
+        <!-- Consolidated Service Status Summary (from Metrics) + System Metrics -->
         <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-stream"></i> Real-time Streaming Services
-                        </h6>
+            <!-- Service Status Summary Grid -->
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-server"></i> Service Status Summary
+                        </h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-4">
-                                <div class="service-item d-flex justify-content-between align-items-center mb-3">
-                                    <span><i class="fas fa-server text-primary"></i> Apache Kafka</span>
-                                    <span class="badge bg-success">Healthy</span>
-                                </div>
-                                <small class="text-muted">Message streaming platform</small>
+                            {% for service_id, service in services.items() %}
+                            <div class="col-sm-6 col-md-4 col-lg-3 mb-3">
+                                <a href="{{ service.external_url if service.external_url else '#' }}" class="text-decoration-none" target="_blank">
+                                    <div class="card h-100 border-0 shadow-sm" style="background: #ffffff;">
+                                        <div class="card-body text-center">
+                                            <span class="d-block mb-2" style="font-size: 1.5rem;">{{ service.icon if service.icon is defined else '🧩' }}</span>
+                                            <h6 class="card-title mb-1">{{ service.name }}</h6>
+                                            <small class="text-muted d-block mb-2">{{ service.category }}</small>
+                                            <span class="badge bg-{{ 'success' if service.status == 'healthy' else 'warning' if service.status == 'warning' else 'danger' }}">
+                                                {{ service.status.title() }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </a>
                             </div>
-                            <div class="col-md-4">
-                                <div class="service-item d-flex justify-content-between align-items-center mb-3">
-                                    <span><i class="fas fa-cogs text-success"></i> Apache Flink</span>
-                                    <span class="badge bg-success">Healthy</span>
-                                </div>
-                                <small class="text-muted">Stream processing engine</small>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="service-item d-flex justify-content-between align-items-center mb-3">
-                                    <span><i class="fas fa-network-wired text-info"></i> Apache Zookeeper</span>
-                                    <span class="badge bg-success">Healthy</span>
-                                </div>
-                                <small class="text-muted">Cluster coordination</small>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-4">
-                                <div class="service-item d-flex justify-content-between align-items-center mb-3">
-                                    <span><i class="fas fa-eye text-warning"></i> Kafka UI</span>
-                                    <span class="badge bg-success">Healthy</span>
-                                </div>
-                                <small class="text-muted">Kafka management interface</small>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="service-item d-flex justify-content-between align-items-center mb-3">
-                                    <span><i class="fas fa-chart-bar text-danger"></i> Flink Dashboard</span>
-                                    <span class="badge bg-success">Healthy</span>
-                                </div>
-                                <small class="text-muted">Flink job monitoring</small>
-                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
             </div>
+
         </div>
 
-        <!-- Monitoring Services Status -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-warning text-dark">
-                        <h6 class="mb-0">
-                            <i class="fas fa-chart-line"></i> Monitoring & Observability
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="service-list">
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-chart-bar text-primary"></i> Prometheus</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-chart-line text-success"></i> Grafana</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-heartbeat text-info"></i> System Health</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-secondary text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-database"></i> Infrastructure Services
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="service-list">
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-database text-primary"></i> PostgreSQL</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-memory text-success"></i> Redis</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                            <div class="service-item d-flex justify-content-between align-items-center mb-2">
-                                <span><i class="fas fa-docker text-info"></i> Docker</span>
-                                <span class="badge bg-success">Healthy</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- System Metrics -->
+        <!-- System Metrics Panel (stacked below) -->
         {% if system_metrics %}
         <div class="row mb-4">
             <div class="col-12">
@@ -345,44 +216,47 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="text-center">
-                                    <h4 class="text-primary">{{ system_metrics.cpu }}%</h4>
-                                    <small class="text-muted">CPU Usage</small>
-                                    <div class="progress mt-2">
-                                        <div class="progress-bar bg-primary" style="width: {{ system_metrics.cpu }}%"></div>
-                                    </div>
-                                </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">CPU Usage</small>
+                                <span class="fw-semibold text-primary">{{ system_metrics.cpu }}%</span>
                             </div>
-                            <div class="col-md-3">
-                                <div class="text-center">
-                                    <h4 class="text-success">{{ system_metrics.memory.percent }}%</h4>
-                                    <small class="text-muted">Memory Usage</small>
-                                    <div class="progress mt-2">
-                                        <div class="progress-bar bg-success" style="width: {{ system_metrics.memory.percent }}%"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="text-center">
-                                    <h4 class="text-warning">{{ system_metrics.disk.percent }}%</h4>
-                                    <small class="text-muted">Disk Usage</small>
-                                    <div class="progress mt-2">
-                                        <div class="progress-bar bg-warning" style="width: {{ system_metrics.disk.percent }}%"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="text-center">
-                                    <h4 class="text-info">{{ services|length }}</h4>
-                                    <small class="text-muted">Total Services</small>
-                                    <div class="progress mt-2">
-                                        <div class="progress-bar bg-info" style="width: 100%"></div>
-                                    </div>
-                                </div>
+                            <div class="progress mt-1">
+                                <div class="progress-bar bg-primary" style="width: {{ system_metrics.cpu }}%"></div>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">Memory Usage</small>
+                                <span class="fw-semibold text-success">{{ system_metrics.memory.percent }}%</span>
+                            </div>
+                            <div class="progress mt-1">
+                                <div class="progress-bar bg-success" style="width: {{ system_metrics.memory.percent }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">Disk Usage</small>
+                                <span class="fw-semibold text-warning">{{ system_metrics.disk.percent }}%</span>
+                            </div>
+                            <div class="progress mt-1">
+                                <div class="progress-bar bg-warning" style="width: {{ system_metrics.disk.percent }}%"></div>
+                            </div>
+                        </div>
+                        {% if docker_status %}
+                        <hr>
+                        <div class="small text-muted mb-2">Docker Containers</div>
+                        <div class="row g-2">
+                            {% for name, status in docker_status.items() %}
+                            <div class="col-6">
+                                <div class="d-flex justify-content-between align-items-center border rounded px-2 py-1">
+                                    <small class="text-truncate">{{ name }}</small>
+                                    <span class="badge bg-light text-dark">{{ status.split(' ')[0] }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -421,101 +295,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Service health checking
-        function checkServiceHealth() {
-            // Check streaming services
-            checkStreamingServices();
-            
-            // Check other services
-            checkDataServices();
-            checkPipelineServices();
-            checkMonitoringServices();
-        }
-
-        function checkStreamingServices() {
-            fetch('/api/streaming/status')
-                .then(response => response.json())
-                .then(data => {
-                    const streamingStatus = document.getElementById('streamingServicesStatus');
-                    const streamingCount = document.getElementById('streamingServicesCount');
-                    
-                    if (data.overall_status === 'healthy') {
-                        streamingStatus.className = 'status-healthy';
-                        streamingStatus.innerHTML = '<i class="fas fa-circle"></i> <span id="streamingServicesCount">5/5</span> Healthy';
-                    } else if (data.overall_status === 'degraded') {
-                        streamingStatus.className = 'status-warning';
-                        streamingStatus.innerHTML = '<i class="fas fa-circle"></i> <span id="streamingServicesCount">3/5</span> Degraded';
-                    } else {
-                        streamingStatus.className = 'status-down';
-                        streamingStatus.innerHTML = '<i class="fas fa-circle"></i> <span id="streamingServicesCount">0/5</span> Down';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error checking streaming services:', error);
-                    const streamingStatus = document.getElementById('streamingServicesStatus');
-                    streamingStatus.className = 'status-down';
-                    streamingStatus.innerHTML = '<i class="fas fa-circle"></i> <span id="streamingServicesCount">0/5</span> Error';
-                });
-        }
-
-        function checkDataServices() {
-            // Check Trino
-            fetch('http://localhost:8080/v1/info')
-                .then(response => {
-                    if (response.ok) {
-                        updateServiceStatus('dataServicesStatus', 'dataServicesCount', '4/4', 'status-healthy');
-                    } else {
-                        updateServiceStatus('dataServicesStatus', 'dataServicesCount', '3/4', 'status-warning');
-                    }
-                })
-                .catch(error => {
-                    updateServiceStatus('dataServicesStatus', 'dataServicesCount', '2/4', 'status-warning');
-                });
-        }
-
-        function checkPipelineServices() {
-            // Check Dagster
-            fetch('http://localhost:3000/health')
-                .then(response => {
-                    if (response.ok) {
-                        updateServiceStatus('pipelineServicesStatus', 'pipelineServicesCount', '4/4', 'status-healthy');
-                    } else {
-                        updateServiceStatus('pipelineServicesStatus', 'pipelineServicesCount', '3/4', 'status-warning');
-                    }
-                })
-                .catch(error => {
-                    updateServiceStatus('pipelineServicesStatus', 'pipelineServicesCount', '3/4', 'status-warning');
-                });
-        }
-
-        function checkMonitoringServices() {
-            // Check Prometheus
-            fetch('http://localhost:9090/-/healthy')
-                .then(response => {
-                    if (response.ok) {
-                        updateServiceStatus('monitoringServicesStatus', 'monitoringServicesCount', '3/3', 'status-healthy');
-                    } else {
-                        updateServiceStatus('monitoringServicesStatus', 'monitoringServicesCount', '2/3', 'status-warning');
-                    }
-                })
-                .catch(error => {
-                    updateServiceStatus('monitoringServicesStatus', 'monitoringServicesCount', '2/3', 'status-warning');
-                });
-        }
-
-        function updateServiceStatus(statusId, countId, count, statusClass) {
-            const statusElement = document.getElementById(statusId);
-            const countElement = document.getElementById(countId);
-            
-            statusElement.className = statusClass;
-            countElement.textContent = count;
-        }
-
-        // Check health on page load and every 30 seconds
-        document.addEventListener('DOMContentLoaded', function() {
-            checkServiceHealth();
-            setInterval(checkServiceHealth, 30000);
-        });
+        // Minimal auto-refresh to keep health view current without duplicate probing logic
+        setInterval(function() {
+            if (!document.hidden) {
+                location.reload();
+            }
+        }, 30000);
     </script>
 </body>
 </html>

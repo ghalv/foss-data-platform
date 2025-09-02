@@ -459,11 +459,19 @@ def health_page():
         health_status[service_id] = {
             'name': service_info['name'],
             'status': check_service_health(service_id, service_info),
-            'url': service_info['url']
+            'url': service_info['url'],
+            'description': service_info.get('description'),
+            'icon': service_info.get('icon'),
+            'category': service_info.get('category'),
+            'external_url': service_info.get('external_url')
         }
     
+    # Include system and docker metrics for consolidated view
+    system_metrics = get_system_metrics()
+    docker_status = get_docker_status()
+    
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 24-hour format
-    return render_template('health.html', services=health_status, timestamp=timestamp)
+    return render_template('health.html', services=health_status, system_metrics=system_metrics, docker_status=docker_status, timestamp=timestamp)
 
 @app.route('/api/metrics')
 def api_metrics():
@@ -476,29 +484,8 @@ def api_metrics():
 
 @app.route('/metrics')
 def metrics_page():
-    """Human-readable metrics page"""
-    # Get service status like the health route does
-    services = {}
-    for service_id, service_info in SERVICES.items():
-        services[service_id] = {
-            'name': service_info['name'],
-            'status': check_service_health(service_id, service_info),
-            'url': service_info['url'],
-            'description': service_info['description'],
-            'icon': service_info['icon'],
-            'category': service_info['category'],
-            'external_url': service_info['external_url']
-        }
-    
-    system_metrics = get_system_metrics()
-    docker_status = get_docker_status()
-    
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 24-hour format
-    return render_template('metrics.html', 
-                         services=services,
-                         system_metrics=system_metrics,
-                         docker_status=docker_status,
-                         timestamp=timestamp)
+    """Redirect consolidated metrics view to health page"""
+    return redirect(url_for('health_page'))
 
 @app.route('/service/<service_id>')
 def service_redirect(service_id):

@@ -47,25 +47,22 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **3. 📈 Metrics Dashboard** - `http://localhost:5000/metrics`
+### **3. ❤️ Health Dashboard** - `http://localhost:5000/health`
 **When to Use:**
-- **Monitoring system performance** and resource usage
-- **Viewing real-time metrics** for CPU, memory, and disk
-- **Tracking system health** and performance trends
-- **Quick system overview** without external tools
+- **Monitoring service health** and platform status
+- **Viewing system performance** (CPU, memory, disk) at-a-glance
+- **Quick access** to external service UIs
 
 **What You Can Do:**
-- View CPU usage and core count
-- Monitor memory consumption and total available
-- Check disk usage and available space
-- Track system performance over time
-- Get quick system health overview
+- See consolidated service status grid
+- View compact system metrics
+- Navigate to service UIs (Grafana, Trino, etc.)
 
 **Access Method:** Integrated in dashboard, no authentication required
 
 ---
 
-### **4. 📊 Grafana** - `http://localhost:3000`
+### **4. 📊 Grafana** - `http://localhost:3001`
 **When to Use:**
 - **Creating custom dashboards** and visualizations
 - **Monitoring system performance** over time
@@ -190,7 +187,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **10. 📦 MinIO (Object Storage)** - `http://localhost:9001`
+### **10. 📦 MinIO (Object Storage)** - `http://localhost:9003`
 **When to Use:**
 - **Storing raw data files** (CSV, JSON, Parquet)
 - **Backing up pipeline artifacts**
@@ -210,7 +207,7 @@ This guide explains when and how to access each service in your FOSS data platfo
 
 ---
 
-### **11. 🎯 Dagster** - `http://localhost:3001`
+### **11. 🎯 Dagster** - `http://localhost:3000`
 **When to Use:**
 - **Orchestrating complex data pipelines**
 - **Scheduling automated jobs**
