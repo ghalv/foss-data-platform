@@ -24,14 +24,14 @@ STAVANGER_PARKING_API_URL = "https://opencom.no/dataset/36ceda99-bbc3-4909-bc52-
 @asset(
     name="stavanger_parking_raw",
     description="Raw parking data from Stavanger Parking API",
-    group_name="stavanger_parking"
+    group_name="stavanger_parking",
+    compute_kind="python"
 )
-def fetch_stavanger_parking_raw(context: AssetExecutionContext) -> pd.DataFrame:
+def fetch_stavanger_parking_raw() -> pd.DataFrame:
     """Fetch raw parking data from Stavanger Parking API."""
 
     try:
         logger.info(f"Fetching data from Stavanger Parking API: {STAVANGER_PARKING_API_URL}")
-        context.log.info("Fetching data from Stavanger Parking API")
 
         # Fetch data from API
         response = requests.get(STAVANGER_PARKING_API_URL, timeout=30)
@@ -40,7 +40,9 @@ def fetch_stavanger_parking_raw(context: AssetExecutionContext) -> pd.DataFrame:
         # Parse JSON data
         raw_data = response.json()
         logger.info(f"Received {len(raw_data)} records from API")
-        context.log.info(f"Received {len(raw_data)} records from API")
+
+        # Define seed directory for delta comparison
+        seed_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking', 'seeds')
 
         # Load previous data for delta comparison (if exists)
         previous_data_path = os.path.join(seed_dir, 'raw_parking_data.csv')
@@ -49,11 +51,9 @@ def fetch_stavanger_parking_raw(context: AssetExecutionContext) -> pd.DataFrame:
         if has_previous_data:
             previous_df = pd.read_csv(previous_data_path)
             logger.info(f"Loaded {len(previous_df)} previous records for comparison")
-            context.log.info(f"Comparing with {len(previous_df)} previous records")
         else:
             previous_df = pd.DataFrame()
             logger.info("No previous data found - this will be the baseline")
-            context.log.info("Creating baseline dataset")
 
         # Convert to DataFrame
         df = pd.DataFrame(raw_data)
@@ -81,7 +81,7 @@ def fetch_stavanger_parking_raw(context: AssetExecutionContext) -> pd.DataFrame:
         if has_previous_data and not previous_df.empty:
             # Compare current data with previous data
             changes_detected = detect_parking_changes(df, previous_df)
-            context.log.info(f"Delta analysis: {changes_detected}")
+            logger.info(f"Delta analysis: {changes_detected}")
 
             # Store change summary for monitoring
             change_summary = {
@@ -106,10 +106,9 @@ def fetch_stavanger_parking_raw(context: AssetExecutionContext) -> pd.DataFrame:
         # Add metadata
         df['data_source'] = 'stavanger_parking_api'
         df['ingestion_timestamp'] = datetime.now(timezone.utc)
-        df['pipeline_run_id'] = context.run_id
+        df['pipeline_run_id'] = f"pipeline_run_{int(datetime.now(timezone.utc).timestamp())}"
 
         # Save raw data for dbt seed with incremental approach
-        seed_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking', 'seeds')
         os.makedirs(seed_dir, exist_ok=True)
 
         # For delta loads, save with timestamp partitioning
@@ -124,17 +123,14 @@ def fetch_stavanger_parking_raw(context: AssetExecutionContext) -> pd.DataFrame:
         df.to_csv(latest_path, index=False)
 
         logger.info(f"Processed and saved {len(df)} records to {seed_path}")
-        context.log.info(f"Processed and saved {len(df)} records to dbt seed")
 
         return df
 
     except requests.exceptions.RequestException as e:
         logger.error(f"API request failed: {str(e)}")
-        context.log.error(f"Failed to fetch data from API: {str(e)}")
         raise
     except Exception as e:
         logger.error(f"Error processing parking data: {str(e)}")
-        context.log.error(f"Failed to process parking data: {str(e)}")
         raise
 
 @asset(
@@ -142,12 +138,11 @@ def fetch_stavanger_parking_raw(context: AssetExecutionContext) -> pd.DataFrame:
     description="Processed and cleaned Stavanger parking data",
     group_name="stavanger_parking"
 )
-def stavanger_parking_processed(context: AssetExecutionContext, stavanger_parking_raw: pd.DataFrame) -> pd.DataFrame:
+def stavanger_parking_processed(stavanger_parking_raw: pd.DataFrame) -> pd.DataFrame:
     """Process and clean Stavanger parking data from raw API data."""
 
     try:
         logger.info("Processing raw parking data")
-        context.log.info("Processing raw parking data")
 
         # Start with the raw data
         df = stavanger_parking_raw.copy()
@@ -162,12 +157,10 @@ def stavanger_parking_processed(context: AssetExecutionContext, stavanger_parkin
         df.to_csv(output_path, index=False)
 
         logger.info(f"Processed and saved {len(df)} parking records to {output_path}")
-        context.log.info(f"Processed and saved {len(df)} parking records")
         return df
 
     except Exception as e:
         logger.error(f"Error processing parking data: {str(e)}")
-        context.log.error(f"Failed to process parking data: {str(e)}")
         raise
 
 # Removed test-data generator; pipeline must use live data seed
