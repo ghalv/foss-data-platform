@@ -24,9 +24,10 @@ stavanger_parking:
     # Docker environment - use when running inside containers
     docker:
       type: trino
+      method: none
+      user: admin
+      database: iceberg
       host: trino-coordinator
       port: 8080
-      user: trino
-      catalog: memory
-      schema: default
+      schema: analytics
       threads: 1

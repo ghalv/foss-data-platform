@@ -107,26 +107,55 @@ services:
       - data-platform
     restart: unless-stopped
 
+  # MinIO client job to create warehouse bucket
+  mc-job:
+    image: 'minio/mc'
+    container_name: mc-job
+    entrypoint: |
+      /bin/bash -c "
+      sleep 5;
+      /usr/bin/mc config --quiet host add myminio http://minio:9000 admin admin123;
+      /usr/bin/mc mb --quiet myminio/datalake
+      "
+    depends_on:
+      - minio
+    networks:
+      - data-platform
+
+  # PostgreSQL for Hive Metastore
+  metastore_db:
+    image: postgres:11
+    hostname: metastore_db
+    container_name: metastore_db
+    environment:
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+      POSTGRES_DB: metastore
+    networks:
+      - data-platform
+    restart: unless-stopped
+
   # Hive Metastore for Iceberg catalog
   hive-metastore:
-    image: apache/hive:4.0.0
     container_name: hive-metastore
+    hostname: hive-metastore
+    image: 'starburstdata/hive:3.1.2-e.15'
     ports:
-      - "9083:9083"
+      - '9083:9083'
     environment:
-      - SERVICE_NAME=hive-metastore
-      - HIVE_METASTORE_PORT=9083
-      - HIVE_METASTORE_DB_HOST=postgres
-      - HIVE_METASTORE_DB_PORT=5432
-      - HIVE_METASTORE_DB_NAME=hive_metastore
-      - HIVE_METASTORE_DB_USER=platform/orchestration
-      - HIVE_METASTORE_DB_PASSWORD=platform/orchestration123
-    volumes:
-      - ./config/hive:/opt/hive/conf
-      - ./data/services/hive:/opt/hive/data
-    entrypoint: ["/opt/hive/conf/init-hive.sh"]
+      HIVE_METASTORE_DRIVER: org.postgresql.Driver
+      HIVE_METASTORE_JDBC_URL: jdbc:postgresql://metastore_db:5432/metastore
+      HIVE_METASTORE_USER: hive
+      HIVE_METASTORE_PASSWORD: hive
+      HIVE_METASTORE_WAREHOUSE_DIR: s3://datalake/
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: admin
+      S3_SECRET_KEY: admin123
+      S3_PATH_STYLE_ACCESS: "true"
+      REGION: ""
     depends_on:
-      - postgres
+      - metastore_db
+      - minio
     networks:
       - data-platform
     restart: unless-stopped
