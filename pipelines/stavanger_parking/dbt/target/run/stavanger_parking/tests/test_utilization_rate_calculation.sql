@@ -15,7 +15,7 @@ select
     current_occupancy,
     utilization_rate,
     (current_occupancy * 100.0 / nullif(total_capacity, 0)) as calculated_rate
-from "memory"."parking_data_staging"."stg_parking_data"
+from "memory"."default_staging"."stg_parking_data"
 where abs(utilization_rate - (current_occupancy * 100.0 / nullif(total_capacity, 0))) > 0.01
   and total_capacity > 0  -- Only test where capacity is available
   

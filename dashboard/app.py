@@ -1189,24 +1189,28 @@ def execute_query():
                 'error': f'Trino API error: {response.status_code}'
             }), 500
 
-        # Get query results
-        query_id = response.json().get('id')
+        # Get query results and initial polling URL
+        initial_response = response.json()
+        query_id = initial_response.get('id')
+        next_uri = initial_response.get('nextUri')
+
         if not query_id:
             return jsonify({
                 'success': False,
                 'error': 'No query ID returned from Trino'
             }), 500
 
-        # Poll for results with optimized timeout
-        max_attempts = 20  # Reasonable number of attempts
-        poll_interval = 1.0  # 1 second intervals
+        # Poll for results with increased timeout and proper URI following
+        max_attempts = 60  # Increased from 20 to 60 attempts
+        poll_interval = 2.0  # Increased from 1.0 to 2.0 seconds for less aggressive polling
+        current_uri = next_uri
 
         for attempt in range(max_attempts):
             time.sleep(poll_interval)
 
             try:
-                result_response = requests.get(f"http://trino-coordinator:8080/v1/query/{query_id}",
-                                             headers=headers, timeout=5)
+                # Use the current URI for polling (follows Trino's redirect chain)
+                result_response = requests.get(current_uri, headers=headers, timeout=10)
 
                 if result_response.status_code == 200:
                     result_data = result_response.json()
@@ -1242,6 +1246,8 @@ def execute_query():
                         }), 500
 
                     elif query_state in ['RUNNING', 'QUEUED']:
+                        # Update URI for next polling attempt
+                        current_uri = result_data.get('nextUri', current_uri)
                         continue  # Keep polling
 
             except requests.exceptions.Timeout:
@@ -1253,9 +1259,10 @@ def execute_query():
                 }), 500
 
         # Timeout after all attempts
+        total_timeout = max_attempts * poll_interval
         return jsonify({
             'success': False,
-            'error': f'Query timed out after {max_attempts} attempts'
+            'error': f'Query timed out after {total_timeout:.0f} seconds ({max_attempts} attempts)'
         }), 504
 
     except Exception as e:
