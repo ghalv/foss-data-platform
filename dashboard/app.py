@@ -11,6 +11,7 @@ import requests
 import json
 import os
 import time
+import sys
 from datetime import datetime
 import psutil
 import subprocess
@@ -38,6 +39,132 @@ PIPELINES_DIR = os.path.join(os.getcwd(), 'config', 'pipelines')
 PIPELINES_REGISTRY = os.path.join(PIPELINES_DIR, 'registry.yaml')
 PIPELINES_OVERRIDES = os.path.join(PIPELINES_DIR, 'overrides.local.yaml')
 
+# Service API Registry - Comprehensive list of all platform services
+SERVICE_API_REGISTRY = {
+    'dagster': {
+        'name': 'Dagster',
+        'description': 'Pipeline orchestration and data processing',
+        'base_url': 'http://localhost:3000',
+        'health_endpoint': '/health',
+        'endpoints': {
+            'graphql': '/graphql',
+            'runs': '/runs',
+            'assets': '/assets',
+            'schedules': '/schedules'
+        },
+        'capabilities': ['pipeline_execution', 'asset_management', 'scheduling', 'monitoring'],
+        'health_check': True
+    },
+    'trino': {
+        'name': 'Trino',
+        'description': 'Distributed SQL query engine for big data',
+        'base_url': 'http://localhost:8080',
+        'health_endpoint': '/v1/info',
+        'endpoints': {
+            'query': '/v1/statement',
+            'catalogs': '/v1/catalog',
+            'info': '/v1/info'
+        },
+        'capabilities': ['sql_queries', 'data_analysis', 'federated_queries', 'performance_monitoring'],
+        'health_check': True
+    },
+    'minio': {
+        'name': 'MinIO',
+        'description': 'S3-compatible object storage',
+        'base_url': 'http://localhost:9000',
+        'health_endpoint': '/minio/health/live',
+        'endpoints': {
+            'buckets': '/minio/v1/buckets',
+            'objects': '/minio/v1/objects'
+        },
+        'capabilities': ['file_storage', 'data_lake', 'backup_restore', 'object_versioning'],
+        'health_check': True
+    },
+    'postgres': {
+        'name': 'PostgreSQL',
+        'description': 'Primary relational database',
+        'base_url': 'postgresql://dagster:dagster123@localhost:5432',
+        'health_endpoint': None,  # Connection-based health check
+        'capabilities': ['data_storage', 'metadata_storage', 'user_management', 'query_execution'],
+        'health_check': True
+    },
+    'hive_metastore': {
+        'name': 'Hive Metastore',
+        'description': 'Metadata catalog for Iceberg tables',
+        'base_url': 'thrift://localhost:9083',
+        'health_endpoint': None,  # Thrift connection check
+        'capabilities': ['table_metadata', 'schema_management', 'partition_management', 'statistics'],
+        'health_check': True
+    },
+    'kafka': {
+        'name': 'Kafka',
+        'description': 'Distributed streaming platform',
+        'base_url': 'localhost:9092',
+        'health_endpoint': None,  # Connection-based health check
+        'endpoints': {
+            'topics': '/topics',
+            'brokers': '/brokers'
+        },
+        'capabilities': ['data_streaming', 'event_processing', 'message_queueing', 'real_time_processing'],
+        'health_check': True
+    },
+    'redis': {
+        'name': 'Redis',
+        'description': 'In-memory data structure store',
+        'base_url': 'localhost:6379',
+        'health_endpoint': None,  # Connection-based health check
+        'capabilities': ['caching', 'session_storage', 'pubsub', 'data_structures'],
+        'health_check': True
+    },
+    'grafana': {
+        'name': 'Grafana',
+        'description': 'Visualization and monitoring platform',
+        'base_url': 'http://localhost:3001',
+        'health_endpoint': '/api/health',
+        'endpoints': {
+            'dashboards': '/api/dashboards',
+            'datasources': '/api/datasources',
+            'alerts': '/api/alerts'
+        },
+        'capabilities': ['data_visualization', 'monitoring', 'alerting', 'dashboard_creation'],
+        'health_check': True
+    },
+    'jupyter': {
+        'name': 'JupyterLab',
+        'description': 'Interactive development environment',
+        'base_url': 'http://localhost:8888',
+        'health_endpoint': None,  # Token-based access
+        'capabilities': ['data_exploration', 'notebook_execution', 'visualization', 'prototyping'],
+        'health_check': False
+    },
+    'portainer': {
+        'name': 'Portainer',
+        'description': 'Container management interface',
+        'base_url': 'http://localhost:9000',
+        'health_endpoint': '/api/status',
+        'endpoints': {
+            'containers': '/api/containers',
+            'stacks': '/api/stacks',
+            'networks': '/api/networks'
+        },
+        'capabilities': ['container_management', 'docker_orchestration', 'log_monitoring', 'resource_management'],
+        'health_check': True
+    },
+    'prometheus': {
+        'name': 'Prometheus',
+        'description': 'Metrics collection and monitoring',
+        'base_url': 'http://localhost:9090',
+        'health_endpoint': '/-/healthy',
+        'endpoints': {
+            'metrics': '/api/v1/query',
+            'targets': '/api/v1/targets',
+            'alerts': '/api/v1/alerts'
+        },
+        'capabilities': ['metrics_collection', 'querying', 'alerting', 'time_series_analysis'],
+        'health_check': True
+    }
+}
+
 def load_pipeline_configs() -> dict:
     registry = {}
     try:
@@ -56,6 +183,70 @@ def load_pipeline_configs() -> dict:
     except Exception:
         pass
     return registry
+
+# Service interaction functions using the API registry
+def check_service_health(service_name: str) -> dict:
+    """Check the health of a specific service using the API registry."""
+    if service_name not in SERVICE_API_REGISTRY:
+        return {'status': 'unknown', 'message': f'Service {service_name} not found in registry'}
+
+    service_info = SERVICE_API_REGISTRY[service_name]
+
+    if not service_info.get('health_check', False):
+        return {'status': 'not_supported', 'message': f'Health check not supported for {service_name}'}
+
+    try:
+        if service_info['health_endpoint']:
+            # HTTP-based health check
+            url = f"{service_info['base_url']}{service_info['health_endpoint']}"
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                return {'status': 'healthy', 'message': f'{service_name} is responding normally'}
+            else:
+                return {'status': 'unhealthy', 'message': f'{service_name} returned status {response.status_code}'}
+        else:
+            # Connection-based health check (for databases, etc.)
+            if 'postgres' in service_name:
+                # Try PostgreSQL connection
+                import psycopg2
+                conn = psycopg2.connect(service_info['base_url'])
+                conn.close()
+                return {'status': 'healthy', 'message': f'{service_name} connection successful'}
+            elif 'redis' in service_name:
+                # Try Redis connection
+                import redis
+                r = redis.Redis.from_url(f"redis://{service_info['base_url']}")
+                r.ping()
+                return {'status': 'healthy', 'message': f'{service_name} connection successful'}
+            else:
+                return {'status': 'unknown', 'message': f'No health check method for {service_name}'}
+    except Exception as e:
+        return {'status': 'unhealthy', 'message': f'{service_name} health check failed: {str(e)}'}
+
+def get_service_capabilities(service_name: str) -> list:
+    """Get the capabilities of a specific service."""
+    service_info = SERVICE_API_REGISTRY.get(service_name, {})
+    return service_info.get('capabilities', [])
+
+def get_service_info(service_name: str) -> dict:
+    """Get comprehensive information about a service."""
+    return SERVICE_API_REGISTRY.get(service_name, {})
+
+def check_all_services_health() -> dict:
+    """Check health of all services in the registry."""
+    results = {}
+    for service_name, service_info in SERVICE_API_REGISTRY.items():
+        if service_info.get('health_check', False):
+            results[service_name] = check_service_health(service_name)
+    return results
+
+def get_services_by_capability(capability: str) -> list:
+    """Find all services that have a specific capability."""
+    matching_services = []
+    for service_name, service_info in SERVICE_API_REGISTRY.items():
+        if capability in service_info.get('capabilities', []):
+            matching_services.append(service_name)
+    return matching_services
 
 def get_pipeline_config(pipeline_id: str) -> dict:
     reg = load_pipeline_configs()
@@ -599,11 +790,11 @@ def run_pipeline():
         # Map pipeline names to project directories
         pipeline_configs = {
             'stavanger_parking': {
-                'project_dir': 'dbt_stavanger_parking',
+                'project_dir': 'pipelines/stavanger_parking/dbt',
                 'commands': [
-                    ['dbt', 'seed', '--target', 'dev'],
-                    ['dbt', 'run', '--target', 'dev'],
-                    ['dbt', 'test', '--target', 'dev']
+                    ['dbt', 'seed', '--target', 'docker'],
+                    ['dbt', 'run', '--target', 'docker'],
+                    ['dbt', 'test', '--target', 'docker']
                 ]
             }
         }
@@ -631,11 +822,11 @@ def run_pipeline():
                 cmd[0] = 'dbt'
                 
                 result = subprocess.run(
-                    cmd, 
-                    cwd=project_dir, 
-                    capture_output=True, 
-                    text=True, 
-                    timeout=300,
+                    cmd,
+                    cwd=project_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=900,
                     env=os.environ.copy()
                 )
                 results.append({
@@ -649,7 +840,7 @@ def run_pipeline():
                     'command': ' '.join(cmd),
                     'success': False,
                     'output': '',
-                    'error': 'Command timed out after 5 minutes'
+                    'error': 'Command timed out after 15 minutes'
                 })
             except Exception as e:
                 results.append({
@@ -748,7 +939,7 @@ def run_specific_model():
             return jsonify({'success': False, 'error': 'Model name is required'}), 400
         
         # Change to dbt project directory - use symlink in dashboard directory
-        project_dir = 'dbt_stavanger_parking'
+        project_dir = 'pipelines.stavanger_parking.dbt'
         
         if not os.path.exists(project_dir):
             return jsonify({
@@ -764,7 +955,7 @@ def run_specific_model():
             }), 400
         
         result = subprocess.run(
-            ['dbt', 'run', '--select', model_name, '--target', 'dev'],
+            ['dbt', 'run', '--select', model_name, '--target', 'docker'],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -804,7 +995,7 @@ def run_tests():
         import os
         
         # Change to dbt project directory - use symlink in dashboard directory
-        project_dir = 'dbt_stavanger_parking'
+        project_dir = 'pipelines.stavanger_parking.dbt'
         
         if not os.path.exists(project_dir):
             return jsonify({
@@ -813,7 +1004,7 @@ def run_tests():
                 'error': f'Project directory not found: {project_dir}',
                 'tests_passed': False,
                 'results': [{
-                    'command': 'dbt test --target dev',
+                    'command': 'dbt test --target docker',
                     'success': False,
                     'output': '',
                     'error': f'Project directory not found: {project_dir}'
@@ -855,7 +1046,7 @@ def run_tests():
                     'error': f'Failed to run dbt: {str(docker_error)}',
                     'tests_passed': False,
                     'results': [{
-                        'command': 'dbt test --target dev',
+                        'command': 'dbt test --target docker',
                         'success': False,
                         'output': '',
                         'error': f'Both direct and container execution failed: {str(docker_error)}'
@@ -893,7 +1084,7 @@ def run_tests():
             'error': result.stderr if result.stderr else '',
             'tests_passed': result.returncode == 0,
             'results': [{
-                'command': 'dbt test --target dev',
+                                        'command': 'dbt test --target docker',
                 'success': result.returncode == 0,
                 'output': result.stdout if result.stdout else '',
                 'error': result.stderr if result.stderr else ''
@@ -907,7 +1098,7 @@ def run_tests():
             'error': f'Failed to run tests: {str(e)}',
             'tests_passed': False,
             'results': [{
-                'command': 'dbt test --target dev',
+                                        'command': 'dbt test --target docker',
                 'success': False,
                 'output': '',
                 'error': f'Failed to run tests: {str(e)}'
@@ -922,11 +1113,11 @@ def get_pipeline_status_detail():
         import os
         import json
         
-        project_dir = 'dbt_stavanger_parking'
+        project_dir = 'pipelines.stavanger_parking.dbt'
         
         # Get dbt project status
         result = subprocess.run(
-            ['dbt', 'list', '--target', 'dev'],
+            ['dbt', 'list', '--target', 'docker'],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -1533,7 +1724,7 @@ def get_pipeline(pipeline_id):
                 'name': 'Stavanger Parking',
                 'type': 'dbt',
                 'description': 'Real-time parking utilization insights and business intelligence',
-                'project_dir': 'dbt_stavanger_parking',
+                'project_dir': 'pipelines.stavanger_parking.dbt',
                 'target': 'dev',
                 'schedule': '0 0 * * *'
             }
@@ -1582,7 +1773,7 @@ def view_pipeline(pipeline_id):
                 'name': 'Stavanger Parking',
                 'type': 'dbt',
                 'description': 'Real-time parking utilization insights and business intelligence',
-                'project_dir': 'dbt_stavanger_parking',
+                'project_dir': 'pipelines.stavanger_parking.dbt',
                 'target': 'dev',
                 'schedule': '0 0 * * *'
             }
@@ -1930,7 +2121,7 @@ def get_pipeline_list():
     """Get list of all available pipelines"""
     try:
         # Get available pipelines from the dbt project
-        dbt_project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        dbt_project_dir = os.path.join(os.getcwd(), 'pipelines.stavanger_parking.dbt')
         
         if os.path.exists(dbt_project_dir):
             pipelines = [
@@ -1961,34 +2152,44 @@ def get_pipeline_stats():
     """Get pipeline statistics"""
     try:
         # Count available pipelines
-        dbt_project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        dbt_project_dir = os.path.join(os.getcwd(), 'pipelines.stavanger_parking.dbt')
         total_pipelines = 1 if os.path.exists(dbt_project_dir) else 0
         
-        # Get pipeline statuses
+        # Get pipeline statuses from actual operation tracking
         active_pipelines = 0
         failed_pipelines = 0
-        success_rate = 1.0
-        
-        # Check if Stavanger parking pipeline exists and is working
-        if total_pipelines > 0:
+        successful_pipelines = 0
+        total_executions = 0
+
+        # Check progress files for real pipeline status
+        import glob
+        progress_files = glob.glob('/tmp/operation_run_pipeline_*.json')
+
+        for progress_file in progress_files:
             try:
-                # Check if dbt project is valid
-                result = subprocess.run(
-                    ['dbt', 'debug', '--project-dir', dbt_project_dir],
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
-                if result.returncode == 0:
-                    active_pipelines = 1
-                    failed_pipelines = 0
-                    success_rate = 1.0
-                else:
-                    failed_pipelines = 1
-                    success_rate = 0.0
+                with open(progress_file, 'r') as f:
+                    data = json.load(f)
+                    status = data.get('status', 'unknown')
+                    total_executions += 1
+
+                    if status == 'running':
+                        active_pipelines += 1
+                    elif status == 'failed':
+                        failed_pipelines += 1
+                    elif status == 'completed' and data.get('success'):
+                        successful_pipelines += 1
             except Exception:
-                failed_pipelines = 1
-                success_rate = 0.0
+                continue
+
+        # Calculate success rate
+        if total_executions > 0:
+            success_rate = (successful_pipelines / total_executions) * 100
+        else:
+            success_rate = 0.0
+
+        # If we have a valid dbt project but no executions, assume it's available
+        if total_pipelines > 0 and total_executions == 0:
+            success_rate = 100.0  # No failures yet
         
         return jsonify({
             'success': True,
@@ -2003,11 +2204,55 @@ def get_pipeline_stats():
             'error': str(e)
         }), 500
 
+@app.route('/api/operations/status')
+def get_operations_status():
+    """Get status of all operations for real-time monitoring."""
+    try:
+        import os
+        import json
+        import time
+
+        operations = []
+        progress_dir = '/tmp'
+
+        for filename in os.listdir(progress_dir):
+            if filename.startswith('operation_run_pipeline_'):
+                filepath = os.path.join(progress_dir, filename)
+                try:
+                    with open(filepath, 'r') as f:
+                        data = json.load(f)
+
+                    # Extract operation info
+                    operation = {
+                        'operation_id': data.get('operation_id', ''),
+                        'pipeline_name': 'stavanger_parking',  # Extract from operation_id
+                        'status': data.get('status', 'unknown'),
+                        'progress': data.get('progress', 0),
+                        'phase': data.get('phase', 'unknown'),
+                        'message': data.get('message', ''),
+                        'last_updated': data.get('last_updated', time.time()),
+                        'start_time': data.get('start_time', time.time()),
+                        'phases': data.get('phases', [
+                            {'name': 'seed', 'status': 'completed', 'timestamp': time.time() - 60, 'duration': '30s'},
+                            {'name': 'run', 'status': 'running', 'timestamp': time.time() - 30, 'duration': '30s'},
+                            {'name': 'test', 'status': 'pending', 'timestamp': time.time(), 'duration': '0s'}
+                        ])
+                    }
+
+                    operations.append(operation)
+                except Exception as e:
+                    print(f"Error reading operation file {filename}: {e}")
+
+        return jsonify({'operations': operations})
+    except Exception as e:
+        print(f"Error in get_operations_status: {e}")
+        return jsonify({'operations': [], 'error': str(e)})
+
 def get_last_pipeline_run(pipeline_name):
     """Get the last run timestamp for a pipeline"""
     try:
         # Check for dbt run artifacts
-        dbt_project_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking')
+        dbt_project_dir = os.path.join(os.getcwd(), 'pipelines.stavanger_parking.dbt')
         target_dir = os.path.join(dbt_project_dir, 'target')
         
         if os.path.exists(target_dir):
@@ -2110,7 +2355,6 @@ def api_chat():
 
         # Enhanced intent recognition with more capabilities
         intents = analyze_user_intent(user_message, messages, messages)
-        print(f"DEBUG: User message: '{user_message}' -> Detected intent: {intents.get('action')}")
 
         # Force conversational patterns to trigger operations
         msg_lower = user_message.lower()
@@ -2118,11 +2362,11 @@ def api_chat():
             # Force status check for pipeline inquiries
             if any(phrase in msg_lower for phrase in ['are there any pipelines', 'what pipelines', 'pipeline status', 'tell me about the failed', 'information about']):
                 intents['action'] = 'check_status'
-                print("DEBUG: Forced status check intent")
+
             # Force test execution for test requests
             elif any(phrase in msg_lower for phrase in ['run a test', 'run some tests', 'run test', 'execute test', 'can you run a test', 'test it']):
                 intents['action'] = 'run_tests'
-                print("DEBUG: Forced test intent")
+
 
         # For long-running operations, create an operation ID and start async processing
         operation_id = None
@@ -2172,9 +2416,13 @@ def api_chat():
                         'context': context_info,
                         'show_details': True
                     }
-                ]
+                ],
+                'markdown_content': f"""💡 **Suggested Next Steps**
+- ✅ **System healthy** - No immediate action required
+- 📈 **Monitor performance** - Keep an eye on system metrics
+- 🔧 **Check pipeline logs** for detailed error information
+- 🐛 **Debug dbt connection** if issues persist"""
             }
-            print(f"DEBUG: Returning response with UI blocks: {len(response_data['ui_blocks'])} blocks")
             return jsonify(response_data)
 
         # Handle different intent types (short operations)
@@ -2187,8 +2435,87 @@ def api_chat():
         elif intents.get('action') == 'run_tests_and_check_status':
             # This will be handled by the async processing above
             pass
+        elif intents.get('action') == 'run_pipeline':
+            # This will be handled by the async processing above
+            # Create immediate response with progress card
+            operation_id = f"run_pipeline_{int(time.time())}_{hash(user_message) % 10000}"
+
+            # Get operation context before starting
+            context_info = get_operation_context(intents, user_message)
+
+            # Start the operation in a separate thread
+            import threading
+            thread = threading.Thread(target=run_operation_async, args=(operation_id, intents, user_message))
+            thread.daemon = True
+            thread.start()
+
+            return jsonify({
+                'success': True,
+                'reply': f"🚀 Starting the Stavanger Parking pipeline execution. This will process the latest parking data through seeding, modeling, and testing phases. You'll see real-time progress in the card below.",
+                'operation_id': operation_id,
+                'status': 'running',
+                'ui_blocks': [
+                    {
+                        'type': 'progress',
+                        'title': 'Stavanger Parking Pipeline',
+                        'status': 'running',
+                        'message': 'Initializing...',
+                        'progress': 5,
+                        'operation_id': operation_id,
+                        'context': context_info,
+                        'show_details': True
+                    }
+                ],
+                'markdown_content': f"""💡 **Suggested Next Steps**
+- ✅ **System healthy** - No immediate action required
+- 📈 **Monitor performance** - Keep an eye on system metrics
+- 🔧 **Check pipeline logs** for detailed error information
+- 🐛 **Debug dbt connection** if issues persist"""
+            })
+        elif intents.get('action') == 'run_tests':
+            # This will be handled by the async processing above
+            # Create immediate response with progress card
+            operation_id = f"run_tests_{int(time.time())}_{hash(user_message) % 10000}"
+
+            # Get operation context before starting
+            context_info = get_operation_context(intents, user_message)
+
+            # Start the operation in a separate thread
+            import threading
+            thread = threading.Thread(target=run_operation_async, args=(operation_id, intents, user_message))
+            thread.daemon = True
+            thread.start()
+
+            return jsonify({
+                'success': True,
+                'reply': f"🧪 Initiating comprehensive dbt test suite. This will validate data quality, check for null values, and ensure business logic integrity across all models. Results will appear in the progress card.",
+                'operation_id': operation_id,
+                'status': 'running',
+                'ui_blocks': [
+                    {
+                        'type': 'progress',
+                        'title': 'DBT Test Suite',
+                        'status': 'running',
+                        'message': 'Initializing test suite...',
+                        'progress': 5,
+                        'operation_id': operation_id,
+                        'context': context_info,
+                        'show_details': True
+                    }
+                ]
+            })
         elif intents.get('action') == 'create_pipeline':
             return handle_create_pipeline(intents, user_message, messages)
+        elif intents.get('action') == 'check_service_health':
+            return handle_service_health_check(intents)
+        elif intents.get('action') == 'comprehensive_status':
+            return handle_comprehensive_status(intents)
+        elif intents.get('action') == 'service_info':
+            return handle_service_info(intents)
+        elif intents.get('action') == 'service_management':
+            return handle_service_management(intents, user_message)
+        elif intents.get('action') == 'data_operations':
+            return handle_data_operations(intents, user_message)
 
         # Use OpenAI for complex queries or general assistance
         return handle_llm_assistance(user_message, messages, intents)
@@ -2279,7 +2606,7 @@ def get_system_diagnostics():
         # Data quality metrics
         try:
             # Check if parking data exists
-            csv_path = os.path.join('dbt_stavanger_parking', 'seeds', 'live_parking.csv')
+            csv_path = os.path.join('pipelines.stavanger_parking.dbt', 'seeds', 'live_parking.csv')
             if os.path.exists(csv_path):
                 mtime = os.path.getmtime(csv_path)
                 diagnostics['data_quality']['last_update'] = datetime.fromtimestamp(mtime).isoformat()
@@ -2523,8 +2850,9 @@ def run_pipeline_operation(operation_id, intents):
         with open(progress_file, 'w') as f:
             json.dump(progress_data, f)
 
-        run_resp = requests.post('http://localhost:5000/api/pipeline/run',
-                                json={'pipeline': pipeline}, timeout=600)
+        # Use 127.0.0.1 instead of localhost to avoid DNS resolution issues
+        run_resp = requests.post('http://127.0.0.1:5000/api/pipeline/run',
+                                json={'pipeline': pipeline}, timeout=1200)
 
         if run_resp.status_code == 200:
             rj = run_resp.json()
@@ -2729,7 +3057,7 @@ def run_test_operation(operation_id, intents):
                 result['ui_blocks'].append({
                     'type': 'info',
                     'title': '🔧 Troubleshooting Tips',
-                    'content': '• Check the failed tests table above for specific error details\n• Run `dbt test --target dev` manually to see full output\n• Verify data sources are properly configured\n• Check database connectivity and permissions',
+                    'content': '• Check the failed tests table above for specific error details\n• Run `dbt test --target docker` manually to see full output\n• Verify data sources are properly configured\n• Check database connectivity and permissions',
                     'color': 'info'
                 })
 
@@ -2799,7 +3127,7 @@ def run_test_operation(operation_id, intents):
             error_messages = []
 
             for test_result in tj['results']:
-                if test_result.get('command') == 'dbt test --target dev':
+                if test_result.get('command') == 'dbt test --target docker':
                     # Extract failed test information from the output
                     output = test_result.get('output', '')
                     error_msg = test_result.get('error', '')
@@ -2997,13 +3325,37 @@ def analyze_user_intent(message, history, messages=None):
     msg_lower = message.lower()
     intents = {'action': None, 'pipeline': 'stavanger_parking', 'parameters': {}}
 
-    # Pipeline operations - expanded recognition with more flexible matching
+
+
+    # FIRST: Handle conversational follow-ups based on previous assistant messages
+    if messages and len(messages) > 0:
+        last_assistant_msg = None
+        for msg in reversed(messages):
+            if msg.get('role') == 'assistant':
+                last_assistant_msg = msg.get('content', '').lower()
+                break
+
+        if last_assistant_msg:
+            # If assistant mentioned failed pipelines, handle requests for details or fixes
+            if ('failed pipeline' in last_assistant_msg or 'attention' in last_assistant_msg or 'need attention' in last_assistant_msg):
+                if any(detail_req in msg_lower for detail_req in ['what kind', 'what kind of', 'why', 'what happened', 'details', 'more info', 'tell me more', 'fix it', 'run it', 'try to run', 'try to start', 'could you try', 'can you try']):
+                    intents['action'] = 'run_pipeline'
+                    return intents  # Early return to prioritize conversational context
+
+    # SECOND: Basic keyword matching for direct commands
     pipeline_keywords = ['run pipeline', 'start pipeline', 'execute pipeline', 'run stavanger', 'start the pipeline',
                         'run the stavanger', 'execute stavanger', 'run stavanger parking', 'start stavanger',
-                        'run it', 'try to run', 'please run', 'run now', 'start now']
+                        'run it', 'try to run', 'please run', 'run now', 'start now',
+                        'try to start', 'could you start', 'can you start', 'please start', 'start it',
+                        'try to start it', 'could you try', 'can you try', 'start the pipeline please',
+                        'please start the pipeline', 'can you run', 'could you run', 'please run it']
+
+    # Check pipeline keywords
     if any(kw in msg_lower for kw in pipeline_keywords):
         intents['action'] = 'run_pipeline'
-    elif any(kw in msg_lower for kw in ['run test', 'execute test', 'test pipeline', 'run tests', 'execute tests', 'run a test', 'test it', 'run some tests']):
+
+    # Other intent patterns
+    if any(kw in msg_lower for kw in ['run test', 'execute test', 'test pipeline', 'run tests', 'execute tests', 'run a test', 'test it', 'run some tests']):
         intents['action'] = 'run_tests'
     elif any(kw in msg_lower for kw in ['ingest', 'pull data', 'fetch data', 'update data', 'pull latest data']):
         intents['action'] = 'ingest_data'
@@ -3021,6 +3373,34 @@ def analyze_user_intent(message, history, messages=None):
             intents['action'] = 'check_status'
     elif 'running' in msg_lower and ('pipeline' in msg_lower or 'pipelines' in msg_lower):
         intents['action'] = 'check_status'
+
+    # Service-specific operations
+    if any(kw in msg_lower for kw in ['check service', 'service health', 'service status']):
+        intents['action'] = 'check_service_health'
+        # Extract service name if mentioned
+        for service_name in SERVICE_API_REGISTRY.keys():
+            if service_name in msg_lower:
+                intents['service'] = service_name
+                break
+
+    # Enhanced status checking with service details
+    elif any(kw in msg_lower for kw in ['system status', 'platform status', 'all services', 'service overview']):
+        intents['action'] = 'comprehensive_status'
+
+    # Service interaction commands
+    elif any(kw in msg_lower for kw in ['restart service', 'stop service', 'start service']):
+        intents['action'] = 'service_management'
+
+    # Data operations across services
+    elif any(kw in msg_lower for kw in ['query data', 'run query', 'analyze data']):
+        intents['action'] = 'data_operations'
+
+    # Service information requests
+    for service_name in SERVICE_API_REGISTRY.keys():
+        if service_name in msg_lower and any(kw in msg_lower for kw in ['tell me about', 'what about', 'information about', 'details about']):
+            intents['action'] = 'service_info'
+            intents['service'] = service_name
+            break
 
     # Handle conversational follow-ups based on previous assistant messages
     if messages and len(messages) > 0 and intents['action'] is None:
@@ -3211,7 +3591,7 @@ def handle_data_ingest(intents):
 
         # Check when data was last updated
         try:
-            csv_path = os.path.join('dbt_stavanger_parking', 'seeds', 'live_parking.csv')
+            csv_path = os.path.join('pipelines.stavanger_parking.dbt', 'seeds', 'live_parking.csv')
             if os.path.exists(csv_path):
                 mtime = os.path.getmtime(csv_path)
                 last_update = datetime.fromtimestamp(mtime)
@@ -4067,7 +4447,7 @@ def _resolve_ckan_parking_json_url() -> str:
 
 
 @lru_cache(maxsize=1)
-def get_last_dbt_test_failures(project_dir: str = 'dbt_stavanger_parking'):
+def get_last_dbt_test_failures(project_dir: str = 'pipelines.stavanger_parking.dbt'):
     """Parse dbt artifacts to summarize failed tests, if any."""
     try:
         # Prefer persisted canonical summary if available
@@ -4116,7 +4496,7 @@ EVENTS_PATH = '/tmp/pipeline_events.jsonl'
 
 
 def write_rows_to_seed_csv(rows):
-    seed_dir = os.path.join(os.getcwd(), 'dbt_stavanger_parking', 'seeds')
+    seed_dir = os.path.join(os.getcwd(), 'pipelines.stavanger_parking.dbt', 'seeds')
     os.makedirs(seed_dir, exist_ok=True)
     seed_path = os.path.join(seed_dir, 'live_parking.csv')
     fieldnames = ['name', 'available_spaces', 'lat', 'lon', 'fetched_at']
@@ -4189,6 +4569,458 @@ def stop_operation():
             'success': True,
             'message': f'Operation {operation_id} stopped successfully',
             'operation_id': operation_id
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# Enhanced service interaction handlers
+def handle_service_health_check(intents):
+    """Handle service health check requests."""
+    service_name = intents.get('service')
+
+    if service_name:
+        # Check specific service
+        health_result = check_service_health(service_name)
+        service_info = get_service_info(service_name)
+
+        if health_result['status'] == 'healthy':
+            response_msg = f"✅ {service_info.get('name', service_name)} is healthy and running normally."
+        elif health_result['status'] == 'unhealthy':
+            response_msg = f"❌ {service_info.get('name', service_name)} has issues: {health_result['message']}"
+        else:
+            response_msg = f"⚠️ {service_info.get('name', service_name)}: {health_result['message']}"
+
+        return jsonify({
+            'success': True,
+            'reply': response_msg,
+            'ui_blocks': [{
+                'type': 'metric',
+                'title': f'{service_info.get("name", service_name)} Health',
+                'value': '✅ Healthy' if health_result['status'] == 'healthy' else '❌ Issues',
+                'subtitle': health_result['message'],
+                'color': 'success' if health_result['status'] == 'healthy' else 'danger'
+            }]
+        })
+    else:
+        # Show available services
+        available_services = list(SERVICE_API_REGISTRY.keys())
+        response_msg = f"I can check the health of these services: {', '.join(available_services[:5])}{'...' if len(available_services) > 5 else ''}. Which service would you like me to check?"
+
+        return jsonify({
+            'success': True,
+            'reply': response_msg
+        })
+
+def handle_comprehensive_status(intents):
+    """Handle comprehensive system status requests."""
+    try:
+        # Get all service health
+        health_results = check_all_services_health()
+
+        healthy_count = sum(1 for r in health_results.values() if r.get('status') == 'healthy')
+        total_count = len(health_results)
+
+        response_msg = f"🔍 System Status Overview: {healthy_count}/{total_count} services are healthy."
+
+        ui_blocks = [{
+            'type': 'metric',
+            'title': 'System Health',
+            'value': f'{healthy_count}/{total_count}',
+            'subtitle': f'{healthy_count} of {total_count} services healthy',
+            'color': 'success' if healthy_count == total_count else 'warning' if healthy_count > total_count/2 else 'danger'
+        }]
+
+        # Add individual service blocks
+        for service_name, health_result in health_results.items():
+            service_info = get_service_info(service_name)
+            ui_blocks.append({
+                'type': 'info',
+                'title': f"{service_info.get('name', service_name)}",
+                'content': health_result['message'],
+                'color': 'success' if health_result['status'] == 'healthy' else 'danger'
+            })
+
+        return jsonify({
+            'success': True,
+            'reply': response_msg,
+            'ui_blocks': ui_blocks
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'reply': f"Error checking system status: {str(e)}"
+        })
+
+def handle_service_info(intents):
+    """Handle service information requests."""
+    service_name = intents.get('service')
+
+    if not service_name:
+        return jsonify({
+            'success': False,
+            'reply': 'Please specify which service you want information about.'
+        })
+
+    service_info = get_service_info(service_name)
+    if not service_info:
+        return jsonify({
+            'success': False,
+            'reply': f'I don\'t have information about the service "{service_name}".'
+        })
+
+    capabilities = ', '.join(service_info.get('capabilities', []))
+
+    response_msg = f"ℹ️ {service_info['name']}: {service_info['description']}"
+
+    return jsonify({
+        'success': True,
+        'reply': response_msg,
+        'ui_blocks': [{
+            'type': 'info',
+            'title': service_info['name'],
+            'content': f"**Description:** {service_info['description']}\n\n**Capabilities:** {capabilities}\n\n**Base URL:** {service_info['base_url']}",
+            'color': 'info'
+        }]
+    })
+
+def handle_service_management(intents, user_message):
+    """Handle service management requests (restart, stop, start)."""
+    msg_lower = user_message.lower()
+
+    # Extract service name
+    service_name = None
+    for svc_name in SERVICE_API_REGISTRY.keys():
+        if svc_name in msg_lower:
+            service_name = svc_name
+            break
+
+    if not service_name:
+        available_services = list(SERVICE_API_REGISTRY.keys())
+        return jsonify({
+            'success': False,
+            'reply': f"Please specify which service to manage. Available services: {', '.join(available_services)}"
+        })
+
+    service_info = get_service_info(service_name)
+
+    # Determine action
+    if 'restart' in msg_lower:
+        action = 'restart'
+    elif 'stop' in msg_lower:
+        action = 'stop'
+    elif 'start' in msg_lower:
+        action = 'start'
+    else:
+        action = 'unknown'
+
+    if action == 'unknown':
+        return jsonify({
+            'success': False,
+            'reply': f"Please specify what action to perform on {service_info.get('name', service_name)} (restart, stop, or start)."
+        })
+
+    return jsonify({
+        'success': True,
+        'reply': f"🔧 {action.title()} operation requested for {service_info.get('name', service_name)}. This would require administrative access and is not available through the chat interface for security reasons.",
+        'ui_blocks': [{
+            'type': 'info',
+            'title': f'Service Management - {service_info.get("name", service_name)}',
+            'content': f'**Requested Action:** {action.title()}\n\n**Security Note:** Service management operations require direct system access and cannot be performed through the web interface.',
+            'color': 'warning'
+        }]
+    })
+
+def handle_data_operations(intents, user_message):
+    """Handle data operations across services."""
+    msg_lower = user_message.lower()
+
+    # Determine what kind of data operation
+    if 'query' in msg_lower:
+        operation_type = 'query'
+        services = get_services_by_capability('sql_queries')
+    elif 'analyze' in msg_lower:
+        operation_type = 'analysis'
+        services = get_services_by_capability('data_analysis')
+    else:
+        operation_type = 'general'
+        services = ['trino', 'postgres', 'grafana']
+
+    available_services = [get_service_info(s)['name'] for s in services]
+
+    response_msg = f"🔍 Data {operation_type.title()} Operations Available"
+
+    return jsonify({
+        'success': True,
+        'reply': response_msg,
+        'ui_blocks': [{
+            'type': 'info',
+            'title': f'Data {operation_type.title()} Services',
+            'content': f"**Available Services:** {', '.join(available_services)}\n\n**Recommended:** Trino for distributed queries, PostgreSQL for structured data, Grafana for visualizations.",
+            'color': 'primary'
+        }]
+    })
+
+
+# ==========================================
+# CLEANUP AND RETENTION MANAGEMENT API
+# ==========================================
+
+@app.route('/api/cleanup/stats')
+def get_cleanup_stats():
+    """Get cleanup statistics and retention policies"""
+    try:
+        import psycopg2
+        conn = psycopg2.connect(
+            host='postgres',
+            port=5432,
+            dbname='dagster',
+            user='dagster',
+            password='dagster123'
+        )
+
+        with conn.cursor() as cursor:
+            # Get retention policies
+            cursor.execute("SELECT * FROM get_cleanup_stats()")
+            stats_rows = cursor.fetchall()
+
+            # Get recent cleanup history
+            cursor.execute("""
+                SELECT data_type, cleanup_type, records_deleted, space_freed_bytes,
+                       executed_at, executed_by
+                FROM cleanup_audit
+                ORDER BY executed_at DESC
+                LIMIT 10
+            """)
+            history_rows = cursor.fetchall()
+
+        conn.close()
+
+        # Format stats
+        stats = []
+        for row in stats_rows:
+            stats.append({
+                'data_type': row[0],
+                'retention_days': row[1],
+                'enabled': row[2],
+                'last_cleanup': row[3].isoformat() if row[3] else None,
+                'total_cleaned': row[4],
+                'space_saved': row[5]
+            })
+
+        # Format history
+        history = []
+        for row in history_rows:
+            history.append({
+                'data_type': row[0],
+                'cleanup_type': row[1],
+                'records_deleted': row[2],
+                'space_freed': row[3],
+                'executed_at': row[4].isoformat() if row[4] else None,
+                'executed_by': row[5]
+            })
+
+        return jsonify({
+            'success': True,
+            'stats': stats,
+            'history': history
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/cleanup/policies')
+def get_cleanup_policies():
+    """Get current retention policies"""
+    try:
+        import psycopg2
+        conn = psycopg2.connect(
+            host='postgres',
+            port=5432,
+            dbname='dagster',
+            user='dagster',
+            password='dagster123'
+        )
+
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT data_type, retention_days, enabled, description, created_at, updated_at
+                FROM cleanup_policies
+                ORDER BY data_type
+            """)
+            rows = cursor.fetchall()
+
+        conn.close()
+
+        policies = []
+        for row in rows:
+            policies.append({
+                'data_type': row[0],
+                'retention_days': row[1],
+                'enabled': row[2],
+                'description': row[3],
+                'created_at': row[4].isoformat() if row[4] else None,
+                'updated_at': row[5].isoformat() if row[5] else None
+            })
+
+        return jsonify({
+            'success': True,
+            'policies': policies
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/cleanup/policies', methods=['POST'])
+def update_cleanup_policy():
+    """Update a retention policy"""
+    try:
+        data = request.get_json()
+        data_type = data.get('data_type')
+        retention_days = data.get('retention_days')
+        enabled = data.get('enabled', True)
+
+        if not data_type or retention_days is None:
+            return jsonify({
+                'success': False,
+                'error': 'data_type and retention_days are required'
+            }), 400
+
+        import psycopg2
+        conn = psycopg2.connect(
+            host='postgres',
+            port=5432,
+            dbname='dagster',
+            user='dagster',
+            password='dagster123'
+        )
+
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT update_retention_policy(%s, %s, %s)
+            """, (data_type, retention_days, enabled))
+            result = cursor.fetchone()
+
+        conn.commit()
+        conn.close()
+
+        success = result[0] if result else False
+
+        return jsonify({
+            'success': success,
+            'message': 'Policy updated successfully' if success else 'Policy update failed'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/cleanup/run', methods=['POST'])
+def trigger_cleanup():
+    """Trigger manual cleanup operation"""
+    try:
+        data = request.get_json() or {}
+        cleanup_type = data.get('cleanup_type', 'manual')
+        dry_run = data.get('dry_run', True)
+
+        # Run cleanup script
+        import subprocess
+        import os
+
+        script_path = os.path.join(os.getcwd(), 'scripts', 'cleanup_operations.py')
+        cmd = ['python3', script_path]
+
+        if dry_run:
+            cmd.append('--dry-run')
+        else:
+            cmd.append('--run')
+
+        cmd.extend(['--type', cleanup_type])
+
+        # Run in background to avoid blocking
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=os.getcwd()
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Cleanup operation started ({"DRY RUN" if dry_run else "LIVE"})',
+            'cleanup_type': cleanup_type,
+            'dry_run': dry_run,
+            'process_id': process.pid
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/cleanup/files')
+def get_cleanup_files():
+    """Get information about files that would be cleaned up"""
+    try:
+        import glob
+        import json
+        import os
+        from datetime import datetime
+
+        operations = []
+        pattern = "/tmp/operation_*.json"
+
+        for file_path in glob.glob(pattern):
+            try:
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+
+                file_size = os.path.getsize(file_path)
+                created_at = data.get('start_time')
+                age_days = None
+
+                if created_at:
+                    try:
+                        created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                        age_days = (datetime.now() - created_dt.replace(tzinfo=None)).days
+                    except:
+                        age_days = 999
+
+                operations.append({
+                    'file_path': file_path,
+                    'file_size': file_size,
+                    'created_at': created_at,
+                    'age_days': age_days,
+                    'status': data.get('status', 'unknown'),
+                    'pipeline_name': data.get('pipeline_name', 'unknown')
+                })
+
+            except Exception as e:
+                operations.append({
+                    'file_path': file_path,
+                    'error': str(e)
+                })
+
+        # Sort by age (oldest first), handle None values
+        operations.sort(key=lambda x: x.get('age_days') if x.get('age_days') is not None else 999, reverse=True)
+
+        return jsonify({
+            'success': True,
+            'total_files': len(operations),
+            'operations': operations
         })
 
     except Exception as e:

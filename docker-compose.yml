@@ -12,9 +12,9 @@ services:
       - JUPYTER_TOKEN=fossdata123
       - JUPYTER_CONFIG_DIR=/home/jovyan/.jupyter
     volumes:
-      - ./notebooks:/home/jovyan/work
-      - ./dbt_stavanger_parking:/home/jovyan/pipeline
-      - ./data:/home/jovyan/data
+      - ./pipelines/stavanger_parking/notebooks:/home/jovyan/work
+      - ./pipelines/stavanger_parking/dbt:/home/jovyan/pipeline
+      - ./data/services:/home/jovyan/data
       - ./config/jupyter:/home/jovyan/.jupyter
     working_dir: /home/jovyan/work
     command: jupyter lab --ServerApp.token='' --ServerApp.ip=0.0.0.0 --ServerApp.allow_root=true --ServerApp.password_required=false
@@ -31,18 +31,18 @@ services:
   # Dagster for orchestration
   dagster:
     build:
-      context: ./dagster
+      context: ./platform/orchestration
       dockerfile: Dockerfile
     container_name: dagster
     ports:
       - "3000:3000"
     environment:
-      - DAGSTER_HOME=/opt/dagster/dagster_home
+      - DAGSTER_HOME=/opt/platform/orchestration/platform/orchestration_home
     volumes:
-      - ./dagster:/opt/dagster/app
-      - ./data:/opt/dagster/data
-    working_dir: /opt/dagster
-    command: dagster-webserver -h 0.0.0.0 -p 3000 -w /opt/dagster/app/workspace.yaml
+      - ./platform/orchestration:/opt/platform/orchestration/app
+      - ./data/services:/opt/platform/orchestration/data
+    working_dir: /opt/platform/orchestration
+    command: platform/orchestration-webserver -h 0.0.0.0 -p 3000 -w /opt/platform/orchestration/app/workspace.yaml
     networks:
       - data-platform
     restart: unless-stopped
@@ -98,7 +98,7 @@ services:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-CHANGE_THIS_PASSWORD}
     volumes:
-      - ./data/minio:/data
+      - ./data/services/minio:/data
       - ./config/minio:/scripts
       - ./config/minio:/etc/minio
     command: server /data --console-address ":9001" --anonymous
@@ -118,12 +118,12 @@ services:
       - HIVE_METASTORE_DB_HOST=postgres
       - HIVE_METASTORE_DB_PORT=5432
       - HIVE_METASTORE_DB_NAME=hive_metastore
-      - HIVE_METASTORE_DB_USER=dagster
-      - HIVE_METASTORE_DB_PASSWORD=dagster123
+      - HIVE_METASTORE_DB_USER=platform/orchestration
+      - HIVE_METASTORE_DB_PASSWORD=platform/orchestration123
     volumes:
       - ./config/hive:/opt/hive/conf
-      - ./data/hive:/opt/hive/data
-    command: ["/opt/hive/bin/hive", "--service", "metastore"]
+      - ./data/services/hive:/opt/hive/data
+    entrypoint: ["/opt/hive/conf/init-hive.sh"]
     depends_on:
       - postgres
     networks:
@@ -138,7 +138,7 @@ services:
       - "9090:9090"
     volumes:
       - ./config/prometheus:/etc/prometheus
-      - ./data/prometheus:/prometheus
+      - ./data/services/prometheus:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -163,7 +163,7 @@ services:
       - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
     volumes:
       - ./config/grafana/provisioning:/etc/grafana/provisioning
-      - ./data/grafana:/var/lib/grafana
+      - ./data/services/grafana:/var/lib/grafana
     networks:
       - data-platform
     restart: unless-stopped
@@ -175,11 +175,11 @@ services:
     ports:
       - "5433:5432"
     environment:
-      - POSTGRES_DB=dagster
-      - POSTGRES_USER=dagster
-      - POSTGRES_PASSWORD=dagster123
+      - POSTGRES_DB=platform/orchestration
+      - POSTGRES_USER=platform/orchestration
+      - POSTGRES_PASSWORD=platform/orchestration123
     volumes:
-      - ./data/postgres:/var/run/postgresql/data
+      - ./data/services/postgres:/var/run/postgresql/data
       - ./config/postgres:/docker-entrypoint-initdb.d
     networks:
       - data-platform
@@ -209,7 +209,7 @@ services:
   #   ports:
   #     - "9083:9083"
   #   volumes:
-  #     - ./data/hive:/opt/hive/data
+  #     - ./data/services/hive:/opt/hive/data
   #   networks:
   #     - data-platform
   #   restart: unless-stopped
@@ -224,7 +224,7 @@ services:
     ports:
       - "6380:6379"
     volumes:
-      - ./data/redis:/data
+      - ./data/services/redis:/data
     networks:
       - data-platform
     restart: unless-stopped
@@ -239,7 +239,7 @@ services:
       - .env
     volumes:
       - ./dashboard:/app
-      - ./dbt_stavanger_parking:/app/dbt_stavanger_parking
+      - ./pipelines/stavanger_parking/dbt:/app/pipelines/stavanger_parking/dbt
       - ./.venv:/app/.venv
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
@@ -264,8 +264,8 @@ services:
       - PORTAINER_EDGE_ASYNC=0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./data/portainer:/data
-      - ./data/portainer:/var/lib/portainer
+      - ./data/services/portainer:/data
+      - ./data/services/portainer:/var/lib/portainer
     networks:
       - data-platform
     restart: unless-stopped
@@ -280,8 +280,8 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     volumes:
-      - ./data/zookeeper/data:/var/lib/zookeeper/data
-      - ./data/zookeeper/log:/var/lib/zookeeper/log
+      - ./data/services/zookeeper/data:/var/lib/zookeeper/data
+      - ./data/services/zookeeper/log:/var/lib/zookeeper/log
     networks:
       - data-platform
     restart: unless-stopped
@@ -304,7 +304,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_JMX_PORT: 9101
     volumes:
-      - ./data/kafka:/var/lib/kafka/data
+      - ./data/services/kafka:/var/lib/kafka/data
     networks:
       - data-platform
     restart: unless-stopped
@@ -344,8 +344,8 @@ services:
         state.checkpoints.dir: file:///checkpoints
         state.savepoints.dir: file:///savepoints
     volumes:
-      - ./data/flink/checkpoints:/checkpoints
-      - ./data/flink/savepoints:/savepoints
+      - ./data/services/flink/checkpoints:/checkpoints
+      - ./data/services/flink/savepoints:/savepoints
     networks:
       - data-platform
     restart: unless-stopped
@@ -369,8 +369,30 @@ services:
         state.checkpoints.dir: file:///checkpoints
         state.savepoints.dir: file:///savepoints
     volumes:
-      - ./data/flink/checkpoints:/checkpoints
-      - ./data/flink/savepoints:/savepoints
+      - ./data/services/flink/checkpoints:/checkpoints
+      - ./data/services/flink/savepoints:/savepoints
+    networks:
+      - data-platform
+    restart: unless-stopped
+
+  # Automated Cleanup Service
+  cleanup-scheduler:
+    image: python:3.9-alpine
+    container_name: cleanup-scheduler
+    depends_on:
+      - postgres
+      - dashboard
+    volumes:
+      - ./scripts:/scripts
+      - ./config/postgres:/config/postgres
+    command: >
+      sh -c "
+        apk add --no-cache postgresql-client &&
+        pip install psycopg2-binary &&
+        echo '0 2 * * * python /scripts/cleanup_operations.py --run --type automatic --db-host postgres --db-port 5432' > /etc/crontabs/root &&
+        echo 'Starting cleanup scheduler...' &&
+        crond -f -l 8
+      "
     networks:
       - data-platform
     restart: unless-stopped

@@ -41,6 +41,64 @@
         .pipeline-row td:last-child * {
             cursor: pointer;
         }
+
+        /* Timeline styles for phase visualization */
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e9ecef;
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        .timeline-item.current .timeline-marker {
+            box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.2);
+        }
+        .timeline-marker {
+            position: absolute;
+            left: -22px;
+            top: 5px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #6c757d;
+            border: 2px solid #fff;
+            z-index: 1;
+        }
+        .timeline-marker.completed {
+            background: #28a745;
+        }
+        .timeline-marker.running {
+            background: #007bff;
+            animation: pulse 2s infinite;
+        }
+        .timeline-marker.failed {
+            background: #dc3545;
+        }
+        .timeline-marker.pending {
+            background: #ffc107;
+        }
+        .timeline-content {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border-left: 3px solid #007bff;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -112,33 +170,117 @@
             </div>
         </div>
 
-        <!-- Pipeline Registry -->
+        <!-- Pipeline Lifecycle Monitoring -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <i class="fas fa-list"></i> Pipeline Registry
+                            <i class="fas fa-eye"></i> Pipeline Lifecycle Monitoring
                         </h5>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-light text-dark me-2" id="lastUpdate">Loading...</span>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                                <label class="form-check-label text-white" for="autoRefresh">
+                                    Auto-refresh
+                                </label>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Pipeline</th>
-                                        <th>Type</th>
-                                        <th>Status</th>
-                                        <th>Last Run</th>
-                                        <th>Models</th>
-                                        <th>Success Rate</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="pipelinesTableBody">
-                                    <!-- Pipeline rows will be loaded here by JavaScript -->
-                                </tbody>
-                            </table>
+                        <div id="pipelineLifecycleContainer">
+                            <!-- Pipeline lifecycle will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cleanup Management -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-broom"></i> Cleanup Management
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-light" id="refreshCleanupBtn" title="Refresh Cleanup Stats">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#cleanupConfigModal" title="Cleanup Settings">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="card bg-light border-0">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-primary" id="cleanupFilesCount">-</h4>
+                                        <small class="text-muted">Files to Clean</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light border-0">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-success" id="cleanupSpaceSaved">-</h4>
+                                        <small class="text-muted">Space Saved</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light border-0">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-warning" id="cleanupLastRun">-</h4>
+                                        <small class="text-muted">Last Cleanup</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light border-0">
+                                    <div class="card-body text-center">
+                                        <div class="btn-group-vertical">
+                                            <button class="btn btn-outline-primary btn-sm" id="dryRunCleanupBtn">
+                                                <i class="fas fa-eye"></i> Dry Run
+                                            </button>
+                                            <button class="btn btn-outline-danger btn-sm" id="runCleanupBtn">
+                                                <i class="fas fa-play"></i> Run Cleanup
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-list"></i> Retention Policies</h6>
+                                <div id="retentionPoliciesContainer">
+                                    <div class="text-center">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="sr-only">Loading...</span>
+                                        </div>
+                                        Loading policies...
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-history"></i> Recent Cleanup History</h6>
+                                <div id="cleanupHistoryContainer">
+                                    <div class="text-center">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="sr-only">Loading...</span>
+                                        </div>
+                                        Loading history...
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -322,213 +464,684 @@
         </div>
     </div>
 
+    <!-- Cleanup Configuration Modal -->
+    <div class="modal fade" id="cleanupConfigModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-broom"></i> Cleanup Configuration
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Configure retention policies for automatic cleanup of old pipeline operations and logs.
+                    </div>
+
+                    <div id="cleanupPoliciesForm">
+                        <!-- Policies will be loaded here -->
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-warning">
+                                <i class="fas fa-exclamation-triangle"></i> Safety Features
+                            </h6>
+                            <ul class="list-unstyled small">
+                                <li><i class="fas fa-check text-success"></i> Automatic backups before deletion</li>
+                                <li><i class="fas fa-check text-success"></i> Dry-run mode for testing</li>
+                                <li><i class="fas fa-check text-success"></i> Comprehensive audit logging</li>
+                                <li><i class="fas fa-check text-success"></i> Configurable retention periods</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info">
+                                <i class="fas fa-chart-bar"></i> Expected Impact
+                            </h6>
+                            <div id="cleanupImpactStats">
+                                <small class="text-muted">Load cleanup statistics to see impact...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="saveCleanupPolicies()">
+                        <i class="fas fa-save"></i> Save Policies
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Load real pipeline data on page load
+        // Real-time pipeline lifecycle monitoring
+        let refreshInterval;
+        let lastOperationsData = {};
+
         document.addEventListener('DOMContentLoaded', function() {
-            loadPipelineData();
-            loadPipelineStats();
+            loadPipelineLifecycle();
+            startAutoRefresh();
+
+            // Handle auto-refresh toggle
+            document.getElementById('autoRefresh').addEventListener('change', function() {
+                if (this.checked) {
+                    startAutoRefresh();
+                } else {
+                    stopAutoRefresh();
+                }
+            });
         });
 
-        function loadPipelineData() {
-            fetch('/api/pipeline/list')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.pipelines) {
-                        displayPipelines(data.pipelines);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading pipeline data:', error);
-                    displayPipelines([]);
-                });
+        function startAutoRefresh() {
+            stopAutoRefresh(); // Clear any existing interval
+            refreshInterval = setInterval(() => {
+                loadPipelineLifecycle();
+            }, 3000); // Refresh every 3 seconds
         }
 
-        function loadPipelineStats() {
-            fetch('/api/pipeline/stats')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.total_pipelines !== undefined) {
-                        document.getElementById('totalPipelines').textContent = data.total_pipelines;
-                    }
-                    if (data.active_pipelines !== undefined) {
-                        document.getElementById('activePipelines').textContent = data.active_pipelines;
-                    }
-                    if (data.failed_pipelines !== undefined) {
-                        document.getElementById('failedPipelines').textContent = data.failed_pipelines;
-                    }
-                    if (data.success_rate !== undefined) {
-                        document.getElementById('successRate').textContent = (data.success_rate * 100).toFixed(1) + '%';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading pipeline stats:', error);
-                });
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
         }
 
-        function displayPipelines(pipelines) {
-            const tbody = document.getElementById('pipelinesTableBody');
-            
-            if (pipelines.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">
-                            <i class="fas fa-info-circle me-2"></i>
-                            No pipelines found. Create your first pipeline to get started.
-                        </td>
-                    </tr>
+        function loadPipelineLifecycle() {
+            // Load multiple data sources for comprehensive monitoring
+            Promise.all([
+                fetch('/api/pipeline/list').then(r => r.json()),
+                fetch('/api/pipeline/stats').then(r => r.json()),
+                fetch('/api/operations/status').then(r => r.json()).catch(() => ({operations: []}))
+            ])
+            .then(([pipelineData, statsData, operationsData]) => {
+                updateStats(statsData);
+                updatePipelineLifecycle(pipelineData, operationsData);
+                updateLastRefresh();
+            })
+            .catch(error => {
+                console.error('Error loading pipeline lifecycle:', error);
+                document.getElementById('pipelineLifecycleContainer').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Error loading pipeline data: ${error.message}
+                    </div>
                 `;
+            });
+        }
+
+        function updateStats(data) {
+            document.getElementById('totalPipelines').textContent = data.total_pipelines || 0;
+            document.getElementById('activePipelines').textContent = data.active_pipelines || 0;
+            document.getElementById('failedPipelines').textContent = data.failed_pipelines || 0;
+            document.getElementById('successRate').textContent = data.success_rate ?
+                (data.success_rate * 100).toFixed(1) + '%' : '0%';
+        }
+
+        function updatePipelineLifecycle(pipelineData, operationsData) {
+            const container = document.getElementById('pipelineLifecycleContainer');
+
+            if (!pipelineData.success) {
+                container.innerHTML = '<div class="alert alert-warning">Unable to load pipeline data</div>';
                 return;
             }
 
-            let html = '';
+            const html = generateLifecycleHTML(pipelineData.pipelines || [], operationsData.operations || []);
+            container.innerHTML = html;
+        }
+
+        function generateLifecycleHTML(pipelines, operations) {
+            if (pipelines.length === 0) {
+                return `
+                    <div class="text-center py-5">
+                        <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No Pipelines Configured</h5>
+                        <p class="text-muted">Configure your first pipeline to start monitoring</p>
+                    </div>
+                `;
+            }
+
+            let html = '<div class="row">';
+
             pipelines.forEach(pipeline => {
-                const statusClass = getStatusClass(pipeline.status);
-                const lastRun = pipeline.last_run ? new Date(pipeline.last_run).toLocaleString() : 'Never';
-                const nextRun = pipeline.next_run ? new Date(pipeline.next_run).toLocaleString() : 'Not scheduled';
-                
-                html += `
-                    <tr class="pipeline-row" onclick="viewPipeline('${pipeline.name}')" style="cursor: pointer;">
-                        <td>
+                // Find the most recent operation for this pipeline
+                const pipelineOperations = operations.filter(op => op.pipeline_name === pipeline.name);
+                const operation = pipelineOperations.sort((a, b) => b.start_time - a.start_time)[0] || {};
+                const lifecycleHtml = generatePipelineLifecycle(pipeline, operation);
+                html += lifecycleHtml;
+            });
+
+            html += '</div>';
+            return html;
+        }
+
+        function generatePipelineLifecycle(pipeline, operation) {
+            const statusClass = getStatusClass(operation.status || 'unknown');
+            const statusIcon = getStatusIcon(operation.status || 'unknown');
+            const progressPercent = operation.progress || 0;
+            const isActive = operation.status === 'running';
+
+            return `
+                <div class="col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header ${statusClass} text-white d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="${statusIcon} me-2"></i>
+                                <strong>${pipeline.name}</strong>
+                            </div>
                             <div class="d-flex align-items-center">
-                                <i class="fas fa-project-diagram text-primary me-2"></i>
-                                <div>
-                                    <strong>${pipeline.name}</strong>
-                                    <br><small class="text-muted">${pipeline.description || 'No description'}</small>
+                                <span class="badge bg-light text-dark me-2">${pipeline.type || 'dbt'}</span>
+                                <div class="status-indicator ${getStatusIndicatorClass(operation.status)}"></div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">Progress</small>
+                                    <small class="text-muted">${progressPercent}%</small>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar ${getProgressBarClass(operation.status)}"
+                                         style="width: ${progressPercent}%"
+                                         role="progressbar">
+                                    </div>
                                 </div>
                             </div>
-                        </td>
-                        <td><span class="badge bg-info">${pipeline.type || 'dbt'}</span></td>
-                        <td><span class="badge bg-${statusClass}">${pipeline.status}</span></td>
-                        <td>${lastRun}</td>
-                        <td>5</td>
-                        <td>
-                            <div class="progress" style="height: 20px;">
-                                <div class="progress-bar bg-success" style="width: 100%">
-                                    100%
+
+                            <div class="mb-3">
+                                <strong>Current Phase:</strong>
+                                <span class="badge ${getPhaseBadgeClass(operation.phase)} ms-2">
+                                    ${operation.phase || 'Unknown'}
+                                </span>
+                            </div>
+
+                            <div class="mb-3">
+                                <strong>Status:</strong>
+                                <span class="badge ${getStatusBadgeClass(operation.status)} ms-2">
+                                    ${operation.status || 'Unknown'}
+                                </span>
+                            </div>
+
+                            ${generatePhaseTimeline(operation.phases || [])}
+
+                            <div class="mt-3">
+                                <strong>Last Updated:</strong>
+                                <small class="text-muted ms-2">${formatTimestamp(operation.last_updated)}</small>
+                            </div>
+
+                            ${operation.message ? `
+                                <div class="mt-3 alert ${getMessageAlertClass(operation.status)} py-2">
+                                    <small>${operation.message}</small>
                                 </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generatePhaseTimeline(phases) {
+            if (!phases || phases.length === 0) {
+                return '<div class="text-muted small">No phase information available</div>';
+            }
+
+            let html = '<div class="mb-3"><strong>Execution Timeline:</strong></div>';
+            html += '<div class="timeline">';
+
+            phases.forEach((phase, index) => {
+                const isLast = index === phases.length - 1;
+                const phaseClass = getPhaseClass(phase.status);
+
+                html += `
+                    <div class="timeline-item ${isLast ? 'current' : ''}">
+                        <div class="timeline-marker ${phaseClass}"></div>
+                        <div class="timeline-content">
+                            <div class="d-flex justify-content-between">
+                                <strong class="small">${phase.name}</strong>
+                                <small class="text-muted">${phase.duration || '0s'}</small>
                             </div>
-                        </td>
-                        <td>
-                            <div class="btn-group btn-group-sm" onclick="event.stopPropagation();">
-                                <button class="btn btn-outline-primary" onclick="viewPipeline('${pipeline.name}')">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                                <button class="btn btn-outline-success" onclick="runPipeline('${pipeline.name}')">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                                <button class="btn btn-outline-info" onclick="controlPipeline('${pipeline.name}')">
-                                    <i class="fas fa-cogs"></i>
-                                </button>
-                                <button class="btn btn-outline-warning" onclick="editPipeline('${pipeline.name}')">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-outline-danger" onclick="deletePipeline('${pipeline.name}')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
+                            <div class="small text-muted">${formatTimestamp(phase.timestamp)}</div>
+                        </div>
+                    </div>
                 `;
             });
 
-            tbody.innerHTML = html;
+            html += '</div>';
+            return html;
         }
 
         function getStatusClass(status) {
-            switch (status.toLowerCase()) {
-                case 'running': return 'primary';
-                case 'success': return 'success';
-                case 'failed': return 'danger';
-                case 'pending': return 'warning';
-                case 'stopped': return 'secondary';
-                default: return 'info';
+            switch (status) {
+                case 'running': return 'bg-primary';
+                case 'success': return 'bg-success';
+                case 'failed': return 'bg-danger';
+                case 'warning': return 'bg-warning';
+                default: return 'bg-secondary';
             }
         }
 
-        function viewPipeline(pipelineName) {
-            window.open(`/pipeline/${pipelineName}`, '_blank');
+        function getStatusIcon(status) {
+            switch (status) {
+                case 'running': return 'fas fa-play-circle';
+                case 'success': return 'fas fa-check-circle';
+                case 'failed': return 'fas fa-times-circle';
+                case 'warning': return 'fas fa-exclamation-triangle';
+                default: return 'fas fa-question-circle';
+            }
         }
 
-        function controlPipeline(pipelineName) {
-            window.open(`/pipeline-control?pipeline=${pipelineName}`, '_blank');
+        function getStatusIndicatorClass(status) {
+            switch (status) {
+                case 'running': return 'status-running';
+                case 'success': return 'status-success';
+                case 'failed': return 'status-error';
+                case 'warning': return 'status-warning';
+                default: return 'status-stopped';
+            }
         }
 
-        function runPipeline(pipelineName) {
-            fetch('/api/pipeline/run', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ pipeline: pipelineName })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification(`Pipeline ${pipelineName} started successfully`, 'success');
-                    loadPipelineData(); // Refresh the list
-                } else {
-                    showNotification(`Failed to start pipeline: ${data.error}`, 'danger');
-                }
+        function getProgressBarClass(status) {
+            switch (status) {
+                case 'running': return 'bg-primary progress-bar-striped progress-bar-animated';
+                case 'success': return 'bg-success';
+                case 'failed': return 'bg-danger';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function getPhaseBadgeClass(phase) {
+            switch (phase) {
+                case 'seed': return 'bg-info';
+                case 'run': return 'bg-primary';
+                case 'test': return 'bg-warning';
+                case 'complete': return 'bg-success';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function getStatusBadgeClass(status) {
+            switch (status) {
+                case 'running': return 'bg-primary';
+                case 'success': return 'bg-success';
+                case 'failed': return 'bg-danger';
+                case 'warning': return 'bg-warning';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function getPhaseClass(status) {
+            switch (status) {
+                case 'completed': return 'completed';
+                case 'running': return 'running';
+                case 'failed': return 'failed';
+                default: return 'pending';
+            }
+        }
+
+        function getMessageAlertClass(status) {
+            switch (status) {
+                case 'running': return 'alert-primary';
+                case 'success': return 'alert-success';
+                case 'failed': return 'alert-danger';
+                case 'warning': return 'alert-warning';
+                default: return 'alert-secondary';
+            }
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleTimeString();
+        }
+
+        function updateLastRefresh() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent =
+                'Updated: ' + now.toLocaleTimeString();
+        }
+
+        // ==========================================
+        // CLEANUP MANAGEMENT FUNCTIONS
+        // ==========================================
+
+        // Load cleanup statistics and policies
+        function loadCleanupData() {
+            Promise.all([
+                fetch('/api/cleanup/stats').then(r => r.json()),
+                fetch('/api/cleanup/policies').then(r => r.json()),
+                fetch('/api/cleanup/files').then(r => r.json())
+            ])
+            .then(([statsData, policiesData, filesData]) => {
+                updateCleanupStats(statsData);
+                updateCleanupPolicies(policiesData);
+                updateCleanupFiles(filesData);
             })
             .catch(error => {
-                console.error('Error running pipeline:', error);
-                showNotification('Error running pipeline', 'danger');
+                console.error('Error loading cleanup data:', error);
+                showCleanupError('Failed to load cleanup data: ' + error.message);
             });
         }
 
-        function editPipeline(pipelineName) {
-            // Show edit modal
-            document.getElementById('editPipelineName').value = pipelineName;
-            document.getElementById('editPipelineType').value = 'dbt';
-            document.getElementById('editSchedule').value = '0 0 * * *';
-            
-            const editModal = new bootstrap.Modal(document.getElementById('editPipelineModal'));
-            editModal.show();
+        // Update cleanup statistics display
+        function updateCleanupStats(data) {
+            if (!data.success) {
+                showCleanupError('Failed to load cleanup statistics');
+                return;
+            }
+
+            const stats = data.stats || [];
+            const history = data.history || [];
+
+            // Update summary stats
+            const pipelineOps = stats.find(s => s.data_type === 'pipeline_operations') || {};
+            document.getElementById('cleanupFilesCount').textContent = 'Loading...';
+            document.getElementById('cleanupSpaceSaved').textContent = formatBytes(pipelineOps.space_saved || 0);
+            document.getElementById('cleanupLastRun').textContent = formatTimestamp(pipelineOps.last_cleanup);
+
+            // Update cleanup history
+            updateCleanupHistory(history);
         }
 
-        function deletePipeline(pipelineName) {
-            if (confirm(`Are you sure you want to delete pipeline "${pipelineName}"?`)) {
-                fetch('/api/pipeline/delete', {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ pipeline: pipelineName })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showNotification(`Pipeline ${pipelineName} deleted successfully`, 'success');
-                        loadPipelineData(); // Refresh the list
-                    } else {
-                        showNotification(`Failed to delete pipeline: ${data.error}`, 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting pipeline:', error);
-                    showNotification('Error deleting pipeline', 'danger');
+        // Update retention policies display
+        function updateCleanupPolicies(data) {
+            if (!data.success) {
+                document.getElementById('retentionPoliciesContainer').innerHTML =
+                    '<div class="alert alert-danger">Failed to load policies</div>';
+                return;
+            }
+
+            const policies = data.policies || [];
+            let html = '';
+
+            if (policies.length === 0) {
+                html = '<div class="text-muted">No policies configured</div>';
+            } else {
+                policies.forEach(policy => {
+                    const statusBadge = policy.enabled ?
+                        '<span class="badge bg-success">Enabled</span>' :
+                        '<span class="badge bg-secondary">Disabled</span>';
+
+                    html += `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <strong>${policy.data_type.replace('_', ' ').toUpperCase()}</strong><br>
+                                <small class="text-muted">${policy.description}</small>
+                            </div>
+                            <div class="text-end">
+                                ${statusBadge}<br>
+                                <small class="text-muted">${policy.retention_days} days</small>
+                            </div>
+                        </div>
+                    `;
                 });
+            }
+
+            document.getElementById('retentionPoliciesContainer').innerHTML = html;
+        }
+
+        // Update cleanup history display
+        function updateCleanupHistory(history) {
+            let html = '';
+
+            if (history.length === 0) {
+                html = '<div class="text-muted">No cleanup history</div>';
+            } else {
+                history.slice(0, 5).forEach(item => {
+                    const typeBadge = getCleanupTypeBadge(item.cleanup_type);
+                    html += `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <small><strong>${item.data_type}</strong></small><br>
+                                <small class="text-muted">${formatTimestamp(item.executed_at)}</small>
+                            </div>
+                            <div class="text-end">
+                                ${typeBadge}<br>
+                                <small class="text-muted">${item.records_deleted} deleted</small>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('cleanupHistoryContainer').innerHTML = html;
+        }
+
+        // Update files to be cleaned
+        function updateCleanupFiles(data) {
+            if (!data.success) {
+                document.getElementById('cleanupFilesCount').textContent = 'Error';
+                return;
+            }
+
+            const files = data.operations || [];
+            const oldFiles = files.filter(f => (f.age_days || 0) > 30);
+
+            document.getElementById('cleanupFilesCount').textContent = oldFiles.length;
+        }
+
+        // Get badge for cleanup type
+        function getCleanupTypeBadge(type) {
+            switch (type) {
+                case 'automatic': return '<span class="badge bg-info">Auto</span>';
+                case 'manual': return '<span class="badge bg-primary">Manual</span>';
+                case 'emergency': return '<span class="badge bg-danger">Emergency</span>';
+                default: return '<span class="badge bg-secondary">Unknown</span>';
             }
         }
 
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-            notification.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, 5000);
+        // Format bytes for display
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
+
+        // Handle dry run cleanup
+        function dryRunCleanup() {
+            if (!confirm('Run cleanup in dry-run mode? This will show what would be deleted without actually deleting anything.')) {
+                return;
+            }
+
+            const button = document.getElementById('dryRunCleanupBtn');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+            button.disabled = true;
+
+            fetch('/api/cleanup/run', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cleanup_type: 'manual', dry_run: true})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Dry run completed! Check logs for details.\nProcess ID: ${data.process_id}`);
+                    loadCleanupData(); // Refresh stats
+                } else {
+                    alert('Dry run failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error running dry cleanup: ' + error.message);
+            })
+            .finally(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+        }
+
+        // Handle actual cleanup
+        function runCleanup() {
+            if (!confirm('⚠️ WARNING: This will permanently delete old pipeline operations!\n\nAre you sure you want to proceed?')) {
+                return;
+            }
+
+            const button = document.getElementById('runCleanupBtn');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+            button.disabled = true;
+
+            fetch('/api/cleanup/run', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cleanup_type: 'manual', dry_run: false})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Cleanup started! Check logs for progress.\nProcess ID: ${data.process_id}`);
+                    loadCleanupData(); // Refresh stats
+                } else {
+                    alert('Cleanup failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error running cleanup: ' + error.message);
+            })
+            .finally(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+        }
+
+        // Load cleanup policies for configuration modal
+        function loadCleanupPoliciesForConfig() {
+            fetch('/api/cleanup/policies')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    renderCleanupPoliciesForm(data.policies || []);
+                } else {
+                    document.getElementById('cleanupPoliciesForm').innerHTML =
+                        '<div class="alert alert-danger">Failed to load policies</div>';
+                }
+            })
+            .catch(error => {
+                document.getElementById('cleanupPoliciesForm').innerHTML =
+                    '<div class="alert alert-danger">Error: ' + error.message + '</div>';
+            });
+        }
+
+        // Render policies form
+        function renderCleanupPoliciesForm(policies) {
+            let html = '<form id="policiesForm">';
+
+            policies.forEach(policy => {
+                html += `
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">${policy.data_type.replace('_', ' ').toUpperCase()}</label>
+                            <small class="form-text text-muted">${policy.description}</small>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" class="form-control" name="${policy.data_type}_days"
+                                   value="${policy.retention_days}" min="1" max="365">
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="${policy.data_type}_enabled"
+                                       ${policy.enabled ? 'checked' : ''}>
+                                <label class="form-check-label">Enabled</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">
+                                Updated: ${formatTimestamp(policy.updated_at)}
+                            </small>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</form>';
+            document.getElementById('cleanupPoliciesForm').innerHTML = html;
+        }
+
+        // Save cleanup policies
+        function saveCleanupPolicies() {
+            const form = document.getElementById('policiesForm');
+            if (!form) return;
+
+            const formData = new FormData(form);
+            const updates = [];
+
+            // Parse form data
+            const policyFields = {};
+            for (let [key, value] of formData.entries()) {
+                const [dataType, field] = key.split('_');
+                if (!policyFields[dataType]) policyFields[dataType] = {};
+                policyFields[dataType][field] = field === 'enabled' ? (value === 'on') : parseInt(value);
+            }
+
+            // Prepare updates
+            Object.keys(policyFields).forEach(dataType => {
+                updates.push({
+                    data_type: dataType,
+                    retention_days: policyFields[dataType].days,
+                    enabled: policyFields[dataType].enabled || false
+                });
+            });
+
+            // Send updates
+            Promise.all(updates.map(update =>
+                fetch('/api/cleanup/policies', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(update)
+                }).then(r => r.json())
+            ))
+            .then(results => {
+                const successCount = results.filter(r => r.success).length;
+                const failCount = results.length - successCount;
+
+                if (failCount === 0) {
+                    alert(`✅ All ${successCount} policies updated successfully!`);
+                    $('#cleanupConfigModal').modal('hide');
+                    loadCleanupData(); // Refresh data
+                } else {
+                    alert(`⚠️ ${successCount} policies updated, ${failCount} failed. Check console for details.`);
+                    console.log('Policy update results:', results);
+                }
+            })
+            .catch(error => {
+                alert('Error saving policies: ' + error.message);
+            });
+        }
+
+        // Show cleanup error
+        function showCleanupError(message) {
+            const container = document.getElementById('cleanupHistoryContainer');
+            container.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+        }
+
+        // Initialize cleanup functionality when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add cleanup event listeners
+            document.getElementById('refreshCleanupBtn').addEventListener('click', loadCleanupData);
+            document.getElementById('dryRunCleanupBtn').addEventListener('click', dryRunCleanup);
+            document.getElementById('runCleanupBtn').addEventListener('click', runCleanup);
+
+            // Load cleanup data when cleanup config modal is shown
+            document.getElementById('cleanupConfigModal').addEventListener('show.bs.modal', loadCleanupPoliciesForConfig);
+
+            // Load initial cleanup data
+            loadCleanupData();
+        });
+
     </script>
 </body>
 </html>

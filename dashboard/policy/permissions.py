@@ -68,12 +68,12 @@ PATH_ACL = PathACL(
     read_allow=[
         "docs/",
         "dashboard/templates/",
-        "dbt_stavanger_parking/",
+        "pipelines.stavanger_parking.dbt/",
     ],
     write_allow=[
         # Limit writes to docs and dbt for now
         "docs/",
-        "dbt_stavanger_parking/",
+        "pipelines.stavanger_parking.dbt/",
     ],
 )
 

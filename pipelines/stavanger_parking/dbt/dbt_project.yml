@@ -1,0 +1,56 @@
+name: 'stavanger_parking'
+version: '1.0.0'
+config-version: 2
+
+# This setting configures which "profile" dbt uses for this project.
+profile: 'stavanger_parking'
+
+# These configurations specify where dbt should look for different types of files.
+model-paths: ["models"]
+analysis-paths: ["analysis"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Ensure required schemas exist (Memory)
+on-run-start:
+  - "CREATE SCHEMA IF NOT EXISTS memory.default"
+
+# Configuring data models
+models:
+  stavanger_parking:
+    # Config indicated by + and applies to all files under models/example/
+    staging:
+      +materialized: view
+      +schema: default
+    intermediate:
+      +materialized: view
+      +schema: default
+    marts:
+      +materialized: table
+      +schema: default
+    core:
+      +materialized: table
+      +schema: default
+    marketing:
+      +materialized: table
+      +schema: default
+
+# Seeds configuration
+seeds:
+  stavanger_parking:
+    +schema: default
+    +column_types:
+      name: varchar(255)
+      available_spaces: integer
+      lat: varchar(64)
+      lon: varchar(64)
+      fetched_at: timestamp
+
+# Documentation
+docs-paths: ["docs"]

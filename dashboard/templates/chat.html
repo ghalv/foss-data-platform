@@ -194,7 +194,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
     <script>
         const chatEl = document.getElementById('chat');
         const inputEl = document.getElementById('chatInput');
@@ -209,7 +209,7 @@
             sendBtn.disabled = !shouldEnable;
         }
 
-        function appendMessage(role, text, uiBlocks) {
+        function appendMessage(role, text, uiBlocks, markdownContent) {
             const row = document.createElement('div');
             row.className = 'd-flex mb-2 ' + (role === 'user' ? 'justify-content-end' : 'justify-content-start');
             const bubble = document.createElement('div');
@@ -246,6 +246,33 @@
                     }
                 } else {
                     bubble.textContent = text;
+                }
+            }
+
+            // Add markdown content if present
+            if (markdownContent && role === 'assistant') {
+                console.log('📝 Processing markdown content:', markdownContent); // Debug
+                try {
+                    const html = marked.parse(markdownContent);
+                    let sanitized = DOMPurify.sanitize(html);
+
+                    // Style the markdown content
+                    sanitized = sanitized
+                        .replace(/<h1>/g, '<h1 style="font-size: 1.2rem; margin: 0.5rem 0; color: #495057;">')
+                        .replace(/<h2>/g, '<h2 style="font-size: 1.1rem; margin: 0.4rem 0; color: #495057;">')
+                        .replace(/<h3>/g, '<h3 style="font-size: 1rem; margin: 0.3rem 0; color: #495057;">')
+                        .replace(/<p>/g, '<p style="font-size: 0.9rem; margin: 0.25rem 0; line-height: 1.4; color: #6c757d;">')
+                        .replace(/<li>/g, '<li style="font-size: 0.85rem; margin: 0.1rem 0; color: #6c757d;">')
+                        .replace(/<strong>/g, '<strong style="font-weight: 600; color: #495057;">')
+                        .replace(/<em>/g, '<em style="font-style: italic; color: #6c757d;">');
+
+                    const markdownDiv = document.createElement('div');
+                    markdownDiv.className = 'mt-2 p-2 bg-light rounded';
+                    markdownDiv.style.borderLeft = '3px solid #007bff';
+                    markdownDiv.innerHTML = sanitized;
+                    bubble.appendChild(markdownDiv);
+                } catch (e) {
+                    console.error('Markdown content parsing error:', e);
                 }
             }
 
@@ -654,10 +681,10 @@
                             }
 
                         } else {
-                            // Update progress bar and message
-                            const progressBar = progressBlock.querySelector('.progress-bar');
-                            const statusBadge = progressBlock.querySelector('.badge');
-                            const messageDiv = progressBlock.querySelector('.small.text-muted');
+                                                // Update progress bar and message
+                    const progressBar = progressBlock.querySelector('.progress-bar');
+                    const statusBadge = progressBlock.querySelector('.badge');
+                    const messageDiv = progressBlock.querySelector('.small.text-muted');
 
                             if (progressBar) {
                                 progressBar.style.width = `${progressData.progress || 0}%`;
@@ -839,7 +866,7 @@
                         ui_blocks_count: data.ui_blocks ? data.ui_blocks.length : 0,
                         ui_blocks: data.ui_blocks
                     });
-                    const messageEl = appendMessage('assistant', data.reply, data.ui_blocks);
+                    const messageEl = appendMessage('assistant', data.reply, data.ui_blocks, data.markdown_content);
                     history.push({ role: 'assistant', content: data.reply });
 
                     // Handle long-running operations with progress tracking
