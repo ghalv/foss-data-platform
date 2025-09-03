@@ -59,9 +59,9 @@
             <div class="col">
                 <h1 class="display-5">
                     <i class="fas fa-search text-primary"></i>
-                    Data Explorer
+                    Iceberg Data Explorer
                 </h1>
-                <p class="lead text-muted">Query, explore, and manage your data</p>
+                <p class="lead text-muted">Explore your data lake with full Iceberg integration, metadata discovery, and advanced analytics</p>
             </div>
         </div>
 
@@ -118,9 +118,8 @@
             <div class="col-12">
                 <div class="alert alert-info" role="alert">
                     <i class="fas fa-info-circle"></i>
-                    <strong>Data Browser Guide:</strong> This browser connects to your Trino query engine. 
-                    Use the <strong>iceberg</strong> catalog to access your Stavanger Parking pipeline data. 
-                    The schema browser shows available tables organized by data layers (raw, staging, intermediate, marts).
+                    <strong>Data Explorer Guide:</strong> Explore your Iceberg data lake with full metadata, partitioning, and analytics capabilities.
+                    Use the dynamic schema browser to discover catalogs, schemas, and tables. Click on tables for detailed metadata and statistics.
                 </div>
             </div>
         </div>
@@ -132,76 +131,31 @@
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">
                             <i class="fas fa-sitemap"></i> Schema Browser
+                            <button class="btn btn-sm btn-outline-light float-end" onclick="refreshCatalogTree()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </h5>
                     </div>
                     <div class="card-body schema-browser">
                         <div id="catalog-tree">
-                            <div class="catalog-item p-2" data-catalog="memory">
-                                <i class="fas fa-database text-info"></i> <strong>memory</strong>
-                                <div class="ms-3 mt-2">
-                                    <div class="catalog-item p-1" data-schema="default_raw_data">
-                                        <i class="fas fa-folder text-warning"></i> default_raw_data
-                                        <div class="ms-3 mt-1">
-                                            <div class="catalog-item p-1" data-table="raw_parking_data">
-                                                <i class="fas fa-table text-success"></i> raw_parking_data
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="catalog-item p-1" data-schema="default_staging">
-                                        <i class="fas fa-folder text-warning"></i> default_staging
-                                        <div class="ms-3 mt-1">
-                                            <div class="catalog-item p-1" data-table="stg_parking_data">
-                                                <i class="fas fa-table text-success"></i> stg_parking_data
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="catalog-item p-1" data-schema="default_intermediate">
-                                        <i class="fas fa-folder text-warning"></i> default_intermediate
-                                        <div class="ms-3 mt-1">
-                                            <div class="catalog-item p-1" data-table="int_parking_metrics">
-                                                <i class="fas fa-table text-success"></i> int_parking_metrics
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="catalog-item p-1" data-schema="default_marts_core">
-                                        <i class="fas fa-folder text-warning"></i> default_marts_core
-                                        <div class="ms-3 mt-1">
-                                            <div class="catalog-item p-1" data-table="fct_parking_utilization">
-                                                <i class="fas fa-table text-success"></i> fct_parking_utilization
-                                            </div>
-                                            <div class="catalog-item p-1" data-table="dim_parking_locations">
-                                                <i class="fas fa-table text-success"></i> dim_parking_locations
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="catalog-item p-1" data-schema="default_marts_marketing">
-                                        <i class="fas fa-folder text-warning"></i> default_marts_marketing
-                                        <div class="ms-3 mt-1">
-                                            <div class="catalog-item p-1" data-table="mart_parking_insights">
-                                                <i class="fas fa-table text-success"></i> mart_parking_insights
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="text-center text-muted py-3">
+                                <i class="fas fa-spinner fa-spin"></i> Loading catalogs...
                             </div>
-                            <div class="catalog-item p-2" data-catalog="iceberg">
-                                <i class="fas fa-database text-primary"></i> <strong>iceberg</strong>
-                                <div class="ms-3 mt-2">
-                                    <div class="catalog-item p-1" data-schema="default">
-                                        <i class="fas fa-folder text-warning"></i> default
-                                        <div class="ms-3 mt-1">
-                                            <div class="catalog-item p-1" data-table="fct_parking_utilization">
-                                                <i class="fas fa-table text-success"></i> fct_parking_utilization
-                                            </div>
-                                            <div class="catalog-item p-1" data-table="dim_parking_locations">
-                                                <i class="fas fa-table text-success"></i> dim_parking_locations
-                                            </div>
-                                            <div class="catalog-item p-1" data-table="mart_parking_insights">
-                                                <i class="fas fa-table text-success"></i> mart_parking_insights
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Metadata Panel -->
+                <div class="card mt-3" id="metadata-panel" style="display: none;">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle"></i> Table Metadata
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="metadata-content">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading metadata...
                             </div>
                         </div>
                     </div>
@@ -227,6 +181,15 @@
                             <button class="btn btn-outline-info" onclick="testConnection()">
                                 <i class="fas fa-plug"></i> Test Connection
                             </button>
+                            <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="fas fa-book"></i> Templates
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="loadTemplate('basic')">Basic SELECT</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="loadTemplate('aggregation')">Aggregation Query</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="loadTemplate('iceberg_partitions')">Iceberg Partitions</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="loadTemplate('time_series')">Time Series Analysis</a></li>
+                            </ul>
                             <button class="btn btn-outline-secondary" onclick="clearQuery()">
                                 <i class="fas fa-eraser"></i> Clear
                             </button>
@@ -275,41 +238,12 @@
         });
 
         // Set default query
-        editor.setValue(`SELECT 
-    location_name,
-    COUNT(*) as record_count,
-    AVG(utilization_percentage) as avg_utilization
-FROM memory.default_marts_core.fct_parking_utilization f
-JOIN memory.default_marts_core.dim_parking_locations d ON f.location_key = d.location_key
-GROUP BY location_name
-ORDER BY avg_utilization DESC
+        editor.setValue(`SELECT *
+FROM iceberg.analytics_analytics.raw_parking_data
 LIMIT 10`);
 
-        // Schema browser interactions
-        document.querySelectorAll('.catalog-item').forEach(item => {
-            item.addEventListener('click', function(e) {
-                e.stopPropagation();
-                
-                // Remove active class from all items
-                document.querySelectorAll('.catalog-item').forEach(i => i.classList.remove('active'));
-                
-                // Add active class to clicked item
-                this.classList.add('active');
-                
-                // If it's a table, insert it into the query editor
-                const table = this.getAttribute('data-table');
-                if (table) {
-                    const catalog = this.closest('[data-catalog]').getAttribute('data-catalog');
-                    const schema = this.closest('[data-schema]').getAttribute('data-schema');
-                    const tableName = `${catalog}.${schema}.${table}`;
-                    
-                    // Insert table name at cursor position
-                    const cursor = editor.getCursor();
-                    editor.replaceRange(tableName, cursor);
-                    editor.focus();
-                }
-            });
-        });
+        // Load catalogs on page load
+        loadCatalogTree();
 
         function executeQuery() {
             const query = editor.getValue();
@@ -397,7 +331,7 @@ LIMIT 10`);
 
             // Test with a simple query
             const testQuery = "SHOW CATALOGS";
-            
+
             fetch('/api/query/execute', {
                 method: 'POST',
                 headers: {
@@ -408,20 +342,269 @@ LIMIT 10`);
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    document.getElementById('status-message').innerHTML = 
+                    document.getElementById('status-message').innerHTML =
                         `<i class="fas fa-check-circle text-success"></i> Connection successful! Found ${data.row_count} catalogs`;
-                    
+
                     // Show the catalogs
                     displayResults(data.results, data.columns);
                 } else {
-                    document.getElementById('status-message').innerHTML = 
+                    document.getElementById('status-message').innerHTML =
                         `<i class="fas fa-exclamation-triangle text-warning"></i> Connection test failed: ${data.error}`;
                 }
             })
             .catch(error => {
-                document.getElementById('status-message').innerHTML = 
+                document.getElementById('status-message').innerHTML =
                     `<i class="fas fa-times-circle text-danger"></i> Connection error: ${error.message}`;
             });
+        }
+
+        // Dynamic catalog tree functions
+        function loadCatalogTree() {
+            const catalogTree = document.getElementById('catalog-tree');
+            catalogTree.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Loading catalogs...</div>';
+
+            fetch('/api/catalogs')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderCatalogTree(data.catalogs);
+                    } else {
+                        catalogTree.innerHTML = '<div class="alert alert-warning">Failed to load catalogs</div>';
+                    }
+                })
+                .catch(error => {
+                    catalogTree.innerHTML = `<div class="alert alert-danger">Error loading catalogs: ${error.message}</div>`;
+                });
+        }
+
+        function refreshCatalogTree() {
+            loadCatalogTree();
+        }
+
+        function renderCatalogTree(catalogs) {
+            const catalogTree = document.getElementById('catalog-tree');
+            let html = '';
+
+            catalogs.forEach(catalog => {
+                const catalogClass = catalog === 'iceberg' ? 'text-primary' : 'text-info';
+                html += `
+                    <div class="catalog-item p-2" data-catalog="${catalog}" onclick="toggleCatalog('${catalog}')">
+                        <i class="fas fa-database ${catalogClass}"></i> <strong>${catalog}</strong>
+                        <i class="fas fa-chevron-right float-end catalog-chevron" id="chevron-${catalog}"></i>
+                    </div>
+                    <div class="catalog-schemas" id="schemas-${catalog}" style="display: none;"></div>
+                `;
+            });
+
+            catalogTree.innerHTML = html;
+        }
+
+        function toggleCatalog(catalog) {
+            const schemasDiv = document.getElementById(`schemas-${catalog}`);
+            const chevron = document.getElementById(`chevron-${catalog}`);
+
+            if (schemasDiv.style.display === 'none') {
+                // Load schemas
+                schemasDiv.innerHTML = '<div class="text-center text-muted py-2"><i class="fas fa-spinner fa-spin"></i> Loading schemas...</div>';
+                schemasDiv.style.display = 'block';
+                chevron.className = 'fas fa-chevron-down float-end';
+
+                fetch(`/api/catalogs/${catalog}/schemas`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            renderSchemas(catalog, data.schemas);
+                        } else {
+                            schemasDiv.innerHTML = '<div class="alert alert-warning ms-3">Failed to load schemas</div>';
+                        }
+                    })
+                    .catch(error => {
+                        schemasDiv.innerHTML = `<div class="alert alert-danger ms-3">Error loading schemas: ${error.message}</div>`;
+                    });
+            } else {
+                schemasDiv.style.display = 'none';
+                chevron.className = 'fas fa-chevron-right float-end';
+            }
+        }
+
+        function renderSchemas(catalog, schemas) {
+            const schemasDiv = document.getElementById(`schemas-${catalog}`);
+            let html = '';
+
+            schemas.forEach(schema => {
+                html += `
+                    <div class="catalog-item p-1 ms-3" data-schema="${schema}" onclick="toggleSchema('${catalog}', '${schema}')">
+                        <i class="fas fa-folder text-warning"></i> ${schema}
+                        <i class="fas fa-chevron-right float-end schema-chevron" id="chevron-${catalog}-${schema}"></i>
+                    </div>
+                    <div class="schema-tables" id="tables-${catalog}-${schema}" style="display: none;"></div>
+                `;
+            });
+
+            schemasDiv.innerHTML = html;
+        }
+
+        function toggleSchema(catalog, schema) {
+            const tablesDiv = document.getElementById(`tables-${catalog}-${schema}`);
+            const chevron = document.getElementById(`chevron-${catalog}-${schema}`);
+
+            if (tablesDiv.style.display === 'none') {
+                // Load tables
+                tablesDiv.innerHTML = '<div class="text-center text-muted py-2 ms-4"><i class="fas fa-spinner fa-spin"></i> Loading tables...</div>';
+                tablesDiv.style.display = 'block';
+                chevron.className = 'fas fa-chevron-down float-end';
+
+                fetch(`/api/catalogs/${catalog}/schemas/${schema}/tables`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            renderTables(catalog, schema, data.tables);
+                        } else {
+                            tablesDiv.innerHTML = '<div class="alert alert-warning ms-4">Failed to load tables</div>';
+                        }
+                    })
+                    .catch(error => {
+                        tablesDiv.innerHTML = `<div class="alert alert-danger ms-4">Error loading tables: ${error.message}</div>`;
+                    });
+            } else {
+                tablesDiv.style.display = 'none';
+                chevron.className = 'fas fa-chevron-right float-end';
+            }
+        }
+
+        function renderTables(catalog, schema, tables) {
+            const tablesDiv = document.getElementById(`tables-${catalog}-${schema}`);
+            let html = '';
+
+            tables.forEach(table => {
+                html += `
+                    <div class="catalog-item p-1 ms-4" data-table="${table}" onclick="selectTable('${catalog}', '${schema}', '${table}')">
+                        <i class="fas fa-table text-success"></i> ${table}
+                    </div>
+                `;
+            });
+
+            tablesDiv.innerHTML = html;
+        }
+
+        function selectTable(catalog, schema, table) {
+            // Remove active class from all items
+            document.querySelectorAll('.catalog-item').forEach(item => item.classList.remove('active'));
+
+            // Add active class to selected table
+            event.target.closest('.catalog-item').classList.add('active');
+
+            // Insert table name into query editor
+            const tableName = `${catalog}.${schema}.${table}`;
+            const cursor = editor.getCursor();
+            editor.replaceRange(tableName, cursor);
+            editor.focus();
+
+            // Load table metadata
+            loadTableMetadata(catalog, schema, table);
+        }
+
+        function loadTableMetadata(catalog, schema, table) {
+            const metadataPanel = document.getElementById('metadata-panel');
+            const metadataContent = document.getElementById('metadata-content');
+
+            metadataPanel.style.display = 'block';
+            metadataContent.innerHTML = '<div class="text-center text-muted"><i class="fas fa-spinner fa-spin"></i> Loading metadata...</div>';
+
+            fetch(`/api/catalogs/${catalog}/schemas/${schema}/tables/${table}/metadata`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderTableMetadata(data.metadata, table);
+                    } else {
+                        metadataContent.innerHTML = '<div class="alert alert-warning">Failed to load metadata</div>';
+                    }
+                })
+                .catch(error => {
+                    metadataContent.innerHTML = `<div class="alert alert-danger">Error loading metadata: ${error.message}</div>`;
+                });
+        }
+
+        function renderTableMetadata(metadata, tableName) {
+            const metadataContent = document.getElementById('metadata-content');
+            let html = `<h6 class="mb-3"><i class="fas fa-table"></i> ${tableName}</h6>`;
+
+            // Row count
+            if (metadata.row_count !== undefined) {
+                html += `
+                    <div class="mb-3">
+                        <strong>Row Count:</strong> ${metadata.row_count.toLocaleString()}
+                    </div>
+                `;
+            }
+
+            // Columns
+            if (metadata.columns && metadata.columns.length > 0) {
+                html += `
+                    <div class="mb-3">
+                        <strong>Columns (${metadata.columns.length}):</strong>
+                        <div class="mt-2" style="max-height: 200px; overflow-y: auto;">
+                `;
+
+                metadata.columns.forEach(column => {
+                    const colName = column.Column || column.column || 'Unknown';
+                    const colType = column.Type || column.type || 'Unknown';
+                    html += `<div class="small text-muted"><code>${colName}</code> - ${colType}</div>`;
+                });
+
+                html += '</div></div>';
+            }
+
+            // Partitions (for Iceberg tables)
+            if (metadata.partitions && metadata.partitions.length > 0) {
+                html += `
+                    <div class="mb-3">
+                        <strong>Partitions (${metadata.partitions.length}):</strong>
+                        <div class="mt-2" style="max-height: 150px; overflow-y: auto;">
+                            <small class="text-muted">Partition information available</small>
+                        </div>
+                    </div>
+                `;
+            }
+
+            metadataContent.innerHTML = html;
+        }
+
+        function loadTemplate(template) {
+            const templates = {
+                'basic': `SELECT *
+FROM iceberg.analytics_analytics.raw_parking_data
+LIMIT 10`,
+                'aggregation': `SELECT
+    location_name,
+    COUNT(*) as record_count,
+    ROUND(AVG(available_spaces), 2) as avg_available_spaces,
+    ROUND(AVG(utilization_percentage), 2) as avg_utilization
+FROM iceberg.analytics_analytics.live_parking
+GROUP BY location_name
+ORDER BY avg_utilization DESC
+LIMIT 10`,
+                'iceberg_partitions': `SELECT
+    partition,
+    record_count,
+    file_count,
+    total_size
+FROM iceberg.analytics_analytics.raw_parking_data$partitions
+ORDER BY record_count DESC`,
+                'time_series': `SELECT
+    DATE_TRUNC('hour', CAST(fetched_at AS TIMESTAMP)) as hour,
+    COUNT(*) as readings_count,
+    ROUND(AVG(utilization_percentage), 2) as avg_utilization,
+    ROUND(STDDEV(utilization_percentage), 2) as utilization_stddev
+FROM iceberg.analytics_analytics.live_parking
+WHERE fetched_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+GROUP BY DATE_TRUNC('hour', CAST(fetched_at AS TIMESTAMP))
+ORDER BY hour DESC`
+            };
+
+            if (templates[template]) {
+                editor.setValue(templates[template]);
+            }
         }
 
         function exportResults() {

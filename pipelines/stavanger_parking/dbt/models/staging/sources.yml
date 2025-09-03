@@ -46,3 +46,38 @@ sources:
             description: "Estimated occupancy rate percentage"
           - name: data_quality_score
             description: "Data quality score"
+
+      - name: delta_parking_data
+        description: "Incremental delta load data for Iceberg MERGE operations"
+        freshness:
+          warn_after: {count: 1, period: hour}
+          error_after: {count: 2, period: hour}
+        columns:
+          - name: merge_key
+            description: "Composite key for MERGE operations (location + timestamp)"
+          - name: date
+            description: "Date of parking data"
+          - name: time
+            description: "Time of parking data"
+          - name: location
+            description: "Parking location name"
+          - name: latitude
+            description: "Latitude coordinate"
+          - name: longitude
+            description: "Longitude coordinate"
+          - name: available_spaces
+            description: "Number of available parking spaces"
+          - name: timestamp
+            description: "Combined date and time timestamp"
+          - name: data_source
+            description: "Source of the data"
+          - name: ingestion_timestamp
+            description: "When the data was ingested"
+          - name: pipeline_run_id
+            description: "Pipeline run ID"
+          - name: _load_timestamp
+            description: "Timestamp when this delta was loaded"
+          - name: _is_incremental
+            description: "Flag indicating this is an incremental load"
+          - name: _last_load_timestamp
+            description: "Timestamp of the previous successful load"

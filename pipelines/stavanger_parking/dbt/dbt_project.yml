@@ -22,14 +22,24 @@ on-run-start:
   - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics"
   - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_staging"
   - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_intermediate"
+  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_marts_core"
+  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_marts_marketing"
+
+# Delta load specific configurations
+vars:
+  pipeline_run_id: "{{ run_started_at.strftime('%Y%m%d_%H%M%S') }}"
+  load_type: "delta_load"
+  data_source: "stavanger_api"
 
 # Configuring data models
 models:
   stavanger_parking:
     # Config indicated by + and applies to all files under models/example/
     staging:
-      +materialized: table
+      +materialized: incremental
+      +incremental_strategy: merge
       +schema: analytics_staging
+      +tags: ['staging', 'delta_load']
     intermediate:
       +materialized: table
       +schema: analytics_intermediate
@@ -42,6 +52,20 @@ models:
     marketing:
       +materialized: table
       +schema: analytics
+
+    # Delta load specific models
+    delta_load:
+      +materialized: incremental
+      +incremental_strategy: merge
+      +schema: analytics_staging
+      +tags: ['delta_load', 'iceberg', 'incremental']
+
+    # Metadata models
+    metadata:
+      +materialized: incremental
+      +incremental_strategy: append
+      +schema: analytics
+      +tags: ['metadata', 'audit']
 
 # Seeds configuration
 seeds:
