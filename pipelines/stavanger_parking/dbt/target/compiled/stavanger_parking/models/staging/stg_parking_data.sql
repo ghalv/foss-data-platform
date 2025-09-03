@@ -2,7 +2,7 @@
 
 with source as (
     -- Use raw_parking_data source defined in sources.yml
-    select * from "memory"."default"."raw_parking_data"
+    select * from "iceberg"."analytics_analytics"."raw_parking_data"
 ),
 
 staged as (

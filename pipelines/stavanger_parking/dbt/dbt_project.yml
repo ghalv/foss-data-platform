@@ -17,40 +17,42 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
-# Ensure required schemas exist (Memory)
+# Ensure required schemas exist (Iceberg)
 on-run-start:
-  - "CREATE SCHEMA IF NOT EXISTS memory.default"
+  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics"
+  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_staging"
+  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_intermediate"
 
 # Configuring data models
 models:
   stavanger_parking:
     # Config indicated by + and applies to all files under models/example/
     staging:
-      +materialized: view
-      +schema: default
+      +materialized: table
+      +schema: analytics_staging
     intermediate:
-      +materialized: view
-      +schema: default
+      +materialized: table
+      +schema: analytics_intermediate
     marts:
       +materialized: table
-      +schema: default
+      +schema: analytics
     core:
       +materialized: table
-      +schema: default
+      +schema: analytics
     marketing:
       +materialized: table
-      +schema: default
+      +schema: analytics
 
 # Seeds configuration
 seeds:
   stavanger_parking:
-    +schema: default
+    +schema: analytics
     +column_types:
       name: varchar(255)
       available_spaces: integer
       lat: varchar(64)
       lon: varchar(64)
-      fetched_at: timestamp
+      fetched_at: varchar(64)  # Store as varchar first, then cast to timestamp
 
 # Documentation
 docs-paths: ["docs"]

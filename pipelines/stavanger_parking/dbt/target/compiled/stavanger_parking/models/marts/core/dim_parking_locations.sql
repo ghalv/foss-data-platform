@@ -7,7 +7,7 @@ with staging as (
         parking_zone,
         total_capacity,
         price_per_hour
-    from "memory"."default_staging"."stg_parking_data"
+    from "iceberg"."analytics_staging"."stg_parking_data"
 ),
 
 final as (

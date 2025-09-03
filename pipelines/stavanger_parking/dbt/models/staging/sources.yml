@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: stavanger_parking
     description: "Live parking data from Stavanger municipal API"
-    schema: default
+    schema: analytics_analytics
     tables:
       - name: raw_parking_data
         description: "Raw parking data fetched from Stavanger API"

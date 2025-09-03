@@ -31,3 +31,13 @@ stavanger_parking:
       port: 8080
       schema: analytics
       threads: 1
+      http_scheme: http
+      use_ssl: false
+      verify: false
+      retries: 1
+      connect_timeout: 30
+      session_properties:
+        query_max_execution_time: 1h
+        query_max_run_time: 1h
+        query_max_memory: 512MB
+        query_max_memory_per_node: 256MB

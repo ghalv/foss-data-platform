@@ -1,1 +1,1 @@
-CREATE SCHEMA IF NOT EXISTS memory.default
+CREATE SCHEMA IF NOT EXISTS iceberg.analytics

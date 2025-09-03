@@ -2,18 +2,18 @@
   
     
 
-    create table "memory"."default_marts_core"."fct_parking_utilization__dbt_tmp"
+    create table "iceberg"."analytics_marts_core"."fct_parking_utilization__dbt_tmp"
       
       
     as (
       
 
 with staging as (
-    select * from "memory"."default_staging"."stg_parking_data"
+    select * from "iceberg"."analytics_staging"."stg_parking_data"
 ),
 
 dim_locations as (
-    select * from "memory"."default_marts_core"."dim_parking_locations"
+    select * from "iceberg"."analytics_marts_core"."dim_parking_locations"
 ),
 
 fact_table as (

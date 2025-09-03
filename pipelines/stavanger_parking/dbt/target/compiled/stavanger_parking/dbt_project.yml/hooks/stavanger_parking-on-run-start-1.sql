@@ -1,1 +1,1 @@
-CREATE SCHEMA IF NOT EXISTS memory.default_staging
+CREATE SCHEMA IF NOT EXISTS iceberg.analytics_staging

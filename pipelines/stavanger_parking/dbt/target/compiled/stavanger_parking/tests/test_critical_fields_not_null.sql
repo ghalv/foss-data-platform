@@ -7,7 +7,7 @@ select
     available_spaces,
     total_capacity,
     current_occupancy
-from "memory"."default_staging"."stg_parking_data"
+from "iceberg"."analytics_staging"."stg_parking_data"
 where parking_record_id is null
    or recorded_at is null
    or parking_location is null

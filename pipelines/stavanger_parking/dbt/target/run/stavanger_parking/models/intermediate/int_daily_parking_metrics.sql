@@ -1,12 +1,12 @@
 
   create or replace view
-    "memory"."default_intermediate"."int_daily_parking_metrics"
+    "iceberg"."analytics_intermediate"."int_daily_parking_metrics"
   security definer
   as
     
 
 with staging as (
-    select * from "memory"."default_staging"."stg_parking_data"
+    select * from "iceberg"."analytics_staging"."stg_parking_data"
 ),
 
 daily_metrics as (

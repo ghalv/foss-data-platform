@@ -1,7 +1,7 @@
 
 
 with staging as (
-    select * from "memory"."default_staging"."stg_parking_data"
+    select * from "iceberg"."analytics_staging"."stg_parking_data"
 ),
 
 daily_metrics as (

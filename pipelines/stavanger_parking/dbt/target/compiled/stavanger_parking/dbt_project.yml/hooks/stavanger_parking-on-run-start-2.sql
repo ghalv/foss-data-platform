@@ -1,1 +1,1 @@
-CREATE SCHEMA IF NOT EXISTS memory.default_intermediate
+CREATE SCHEMA IF NOT EXISTS iceberg.analytics_intermediate

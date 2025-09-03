@@ -2,7 +2,7 @@
   
     
 
-    create table "memory"."default_staging"."stg_parking_data"
+    create table "iceberg"."analytics_staging"."stg_parking_data__dbt_tmp"
       
       
     as (
@@ -10,7 +10,7 @@
 
 with source as (
     -- Use raw_parking_data source defined in sources.yml
-    select * from "memory"."default"."raw_parking_data"
+    select * from "iceberg"."analytics_analytics"."raw_parking_data"
 ),
 
 staged as (

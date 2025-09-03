@@ -2,18 +2,18 @@
   
     
 
-    create table "memory"."default_marts_marketing"."mart_parking_insights__dbt_tmp"
+    create table "iceberg"."analytics_marts_marketing"."mart_parking_insights__dbt_tmp"
       
       
     as (
       
 
 with daily_metrics as (
-    select * from "memory"."default_intermediate"."int_daily_parking_metrics"
+    select * from "iceberg"."analytics_intermediate"."int_daily_parking_metrics"
 ),
 
 dim_locations as (
-    select * from "memory"."default_marts_core"."dim_parking_locations"
+    select * from "iceberg"."analytics_marts_core"."dim_parking_locations"
 ),
 
 parking_insights as (

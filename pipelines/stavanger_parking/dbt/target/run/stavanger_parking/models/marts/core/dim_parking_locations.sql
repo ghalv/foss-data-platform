@@ -2,7 +2,7 @@
   
     
 
-    create table "memory"."default_marts_core"."dim_parking_locations__dbt_tmp"
+    create table "iceberg"."analytics_marts_core"."dim_parking_locations__dbt_tmp"
       
       
     as (
@@ -15,7 +15,7 @@ with staging as (
         parking_zone,
         total_capacity,
         price_per_hour
-    from "memory"."default_staging"."stg_parking_data"
+    from "iceberg"."analytics_staging"."stg_parking_data"
 ),
 
 final as (
