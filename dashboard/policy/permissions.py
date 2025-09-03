@@ -42,7 +42,7 @@ SERVICE_ALLOWLIST: Set[str] = {
     "dashboard",
     "dagster",
     "jupyterlab",
-    "trino-coordinator",
+    "localhost",
     "trino-worker",
     "grafana",
     "prometheus",

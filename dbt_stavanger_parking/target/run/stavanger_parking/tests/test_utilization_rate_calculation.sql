@@ -6,8 +6,18 @@
     from (
       
     
-  -- Test skipped: utilization_rate, occupancy, capacity not available in live feed
-select 0 as calculation_errors
+  -- Test utilization rate calculation: (occupancy / capacity) * 100 should match utilization_rate
+-- Returns rows where utilization rate calculation doesn't match (should return 0 rows to pass)
+select
+    parking_record_id,
+    parking_location,
+    total_capacity,
+    current_occupancy,
+    utilization_rate,
+    (current_occupancy * 100.0 / nullif(total_capacity, 0)) as calculated_rate
+from "memory"."parking_data_staging"."stg_parking_data"
+where abs(utilization_rate - (current_occupancy * 100.0 / nullif(total_capacity, 0))) > 0.01
+  and total_capacity > 0  -- Only test where capacity is available
   
   
       

@@ -98,9 +98,18 @@ SERVICES = {
         'category': 'Orchestration',
         'icon': '🎯'
     },
+    'postgres': {
+        'name': 'PostgreSQL',
+        'url': 'postgresql://dagster:dagster123@localhost:5433/dagster',
+        'external_url': 'postgresql://dagster:dagster123@localhost:5433/dagster',
+        'description': 'Primary data warehouse',
+        'status': 'healthy',
+        'category': 'Database',
+        'icon': '🐘'
+    },
     'trino': {
         'name': 'Apache Trino',
-        'url': 'http://trino-coordinator:8080',
+        'url': 'http://localhost:8080',
         'external_url': 'http://localhost:8080',
         'description': 'Distributed SQL query engine',
         'status': 'healthy',
@@ -811,10 +820,17 @@ def run_tests():
                 }]
             }), 400
         
+        # Determine appropriate dbt target based on environment
+        dbt_target = 'dev'  # Default for host environment
+
+        # If running inside Docker, use docker target
+        if os.path.exists('/.dockerenv') or os.environ.get('HOSTNAME', '').startswith('foss-dataplatform'):
+            dbt_target = 'docker'
+
         # Run dbt test command - try direct execution first, fallback to container exec
         try:
             result = subprocess.run(
-                ['dbt', 'test', '--target', 'dev'],
+                ['dbt', 'test', '--target', dbt_target],
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
@@ -826,7 +842,7 @@ def run_tests():
             container_name = os.environ.get('HOSTNAME', 'dashboard')
             try:
                 result = subprocess.run(
-                    ['docker', 'exec', container_name, 'dbt', 'test', '--target', 'dev'],
+                    ['docker', 'exec', container_name, 'dbt', 'test', '--target', dbt_target],
                     cwd=project_dir,
                     capture_output=True,
                     text=True,
@@ -952,99 +968,73 @@ def streaming():
 
 @app.route('/api/query/execute', methods=['POST'])
 def execute_query():
-    """Execute SQL query via Trino"""
+    """Execute SQL query via Trino with Iceberg catalog"""
     try:
         import requests
         import json
         import time
-        
+
         data = request.get_json()
         query = data.get('query')
-        
+
         if not query:
             return jsonify({'success': False, 'error': 'No query provided'}), 400
-        
-        # Trino query execution
+
+        # Trino query execution with Iceberg
         start_time = time.time()
-        
+
         # Execute query via Trino HTTP API
-        trino_url = "http://trino-coordinator:8080/v1/statement"
+        trino_url = "http://localhost:8080/v1/statement"
         headers = {
             'Content-Type': 'application/json',
             'X-Trino-User': 'trino'
         }
-        
+
         response = requests.post(trino_url, data=query, headers=headers, timeout=30)
-        
+
         if response.status_code != 200:
             return jsonify({
-                'success': False, 
+                'success': False,
                 'error': f'Trino API error: {response.status_code}'
             }), 500
-        
+
         # Get query results
         query_id = response.json().get('id')
         if not query_id:
             return jsonify({
-                'success': False, 
+                'success': False,
                 'error': 'No query ID returned from Trino'
             }), 500
-        
-        # Poll for results with longer timeout for complex queries
-        max_attempts = 200  # Increased significantly for complex queries
-        poll_interval = 0.5  # Increased slightly for better performance
-        
-        print(f"Starting to poll for query {query_id}")
-        
-        # Get the nextUri from the initial response
-        next_uri = response.json().get('nextUri')
-        if not next_uri:
-            return jsonify({
-                'success': False,
-                'error': 'No nextUri in Trino response'
-            }), 500
-        
-        print(f"Using nextUri: {next_uri}")
-        
+
+        # Poll for results with optimized timeout
+        max_attempts = 20  # Reasonable number of attempts
+        poll_interval = 1.0  # 1 second intervals
+
         for attempt in range(max_attempts):
             time.sleep(poll_interval)
-            print(f"Poll attempt {attempt + 1}/{max_attempts}")
-            
+
             try:
-                # Use the nextUri directly
-                result_response = requests.get(next_uri, headers=headers, timeout=10)
-                print(f"Response status: {result_response.status_code}")
-                print(f"Response headers: {dict(result_response.headers)}")
-                
+                result_response = requests.get(f"http://localhost:8080/v1/query/{query_id}",
+                                             headers=headers, timeout=5)
+
                 if result_response.status_code == 200:
                     result_data = result_response.json()
-                    print(f"Full response data: {json.dumps(result_data, indent=2)}")
-                    current_state = result_data.get('stats', {}).get('state')
-                    print(f"Query state: {current_state}")
-                    print(f"Response keys: {list(result_data.keys())}")
-                    
-                    # Update nextUri for next iteration (Trino provides new URI each time)
-                    new_next_uri = result_data.get('nextUri')
-                    if new_next_uri:
-                        next_uri = new_next_uri
-                        print(f"Updated nextUri: {next_uri}")
-                    
-                    if current_state == 'FINISHED':
+                    query_state = result_data.get('stats', {}).get('state')
+
+                    if query_state == 'FINISHED':
                         # Extract results
                         columns = [col['name'] for col in result_data.get('columns', [])]
                         data_rows = result_data.get('data', [])
-                        
-                        # Convert to list of dicts
+
                         results = []
                         for row in data_rows:
                             row_dict = {}
                             for i, col in enumerate(columns):
                                 row_dict[col] = row[i] if i < len(row) else None
                             results.append(row_dict)
-                        
+
                         execution_time = int((time.time() - start_time) * 1000)
-                        print(f"Query completed successfully in {execution_time}ms")
-                        
+
                         return jsonify({
                             'success': True,
                             'results': results,
@@ -1052,156 +1042,35 @@ def execute_query():
                             'execution_time': execution_time,
                             'row_count': len(results)
                         })
-                    
-                    elif current_state == 'FAILED':
+
+                    elif query_state == 'FAILED':
                         error_msg = result_data.get('error', {}).get('message', 'Unknown error')
-                        print(f"Query failed: {error_msg}")
                         return jsonify({
                             'success': False,
                             'error': f'Query failed: {error_msg}'
                         }), 500
-                    
-                    elif current_state in ['RUNNING', 'QUEUED']:
-                        # Continue polling
-                        print(f"Query {current_state.lower()}, continuing to poll...")
-                        continue
-                    
-                    # If we get here, the state is something unexpected
-                    print(f"Unexpected query state: {current_state}")
-                    continue
-                    
-                elif result_response.status_code == 410:
-                    # Query is gone, might be completed
-                    print("Query returned 410 Gone, checking if it completed")
-                    # Try to get the final status from the query ID
-                    final_response = requests.get(f"http://trino-coordinator:8080/v1/query/{query_id}", headers=headers, timeout=10)
-                    if final_response.status_code == 200:
-                        final_data = final_response.json()
-                        if final_data.get('state') == 'FINISHED':
-                            # Extract results from final response
-                            columns = [col['name'] for col in final_data.get('columns', [])]
-                            data_rows = final_data.get('data', [])
-                            
-                            results = []
-                            for row in data_rows:
-                                row_dict = {}
-                                for i, col in enumerate(columns):
-                                    row_dict[col] = row[i] if i < len(row) else None
-                                results.append(row_dict)
-                            
-                            execution_time = int((time.time() - start_time) * 1000)
-                            print(f"Query completed successfully in {execution_time}ms")
-                            
-                            return jsonify({
-                                'success': True,
-                                'results': results,
-                                'columns': columns,
-                                'execution_time': execution_time,
-                                'row_count': len(results)
-                            })
-                        else:
-                            print(f"Query state in final response: {final_data.get('state')}")
-                            # If query is not finished, it might have failed
-                            if final_data.get('state') == 'FAILED':
-                                error_msg = final_data.get('error', {}).get('message', 'Unknown error')
-                                return jsonify({
-                                    'success': False,
-                                    'error': f'Query failed: {error_msg}'
-                                }), 500
-                    
-                    # If we can't get results from the final response, the query might be too fast
-                    # Try to get results directly from the nextUri with a different approach
-                    print("Query completed too fast, trying direct result retrieval")
-                    try:
-                        # For fast queries, try to get results immediately
-                        direct_response = requests.get(next_uri, headers=headers, timeout=5)
-                        if direct_response.status_code == 200:
-                            direct_data = direct_response.json()
-                            if direct_data.get('state') == 'FINISHED':
-                                columns = [col['name'] for col in direct_data.get('columns', [])]
-                                data_rows = direct_data.get('data', [])
-                                
-                                results = []
-                                for row in data_rows:
-                                    row_dict = {}
-                                    for i, col in enumerate(columns):
-                                        row_dict[col] = row[i] if i < len(row) else None
-                                    results.append(row_dict)
-                                
-                                execution_time = int((time.time() - start_time) * 1000)
-                                print(f"Query completed successfully in {execution_time}ms")
-                                
-                                return jsonify({
-                                    'success': True,
-                                    'results': results,
-                                    'columns': columns,
-                                    'execution_time': execution_time,
-                                    'row_count': len(results)
-                                })
-                    except Exception as e:
-                        print(f"Direct result retrieval failed: {e}")
-                    
-                    continue
-                    
-                else:
-                    print(f"Unexpected response status: {result_response.status_code}")
-                    print(f"Response text: {result_response.text[:200]}")
-                    
-            except requests.exceptions.Timeout:
-                print(f"Timeout on poll attempt {attempt + 1}")
-                continue
-            except Exception as e:
-                print(f"Error on poll attempt {attempt + 1}: {e}")
-                continue
-        
-        # If we get here, the query timed out
-        total_timeout = max_attempts * poll_interval
-        return jsonify({
-            'success': False,
-            'error': f'Query execution timed out after {total_timeout:.1f} seconds. This may indicate:\n\n1. The table/catalog does not exist\n2. The query is too complex\n3. Trino service is overloaded\n\nTry:\n- Using the memory catalog instead of iceberg\n- Checking table names in the schema browser\n- Running a simpler query first\n\nNote: Complex queries may take up to {total_timeout:.0f} seconds to complete.'
-        }), 500
-        
-    except requests.exceptions.Timeout:
-        return jsonify({
-            'success': False,
-            'error': 'Request to Trino timed out. Please check if Trino is running and accessible.'
-        }), 500
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'Failed to execute query: {str(e)}'
-        }), 500
 
-@app.route('/api/query/test-connection')
-def test_trino_connection():
-    """Simple test endpoint to debug Trino connection"""
-    try:
-        import requests
-        
-        # Test 1: Simple GET request to Trino UI
-        ui_response = requests.get('http://trino-coordinator:8080/ui/', timeout=5)
-        
-        # Test 2: POST request to statement endpoint
-        statement_response = requests.post(
-            'http://trino-coordinator:8080/v1/statement',
-            data='SHOW CATALOGS',
-            headers={'Content-Type': 'application/json', 'X-Trino-User': 'trino'},
-            timeout=10
-        )
-        
+                    elif query_state in ['RUNNING', 'QUEUED']:
+                        continue  # Keep polling
+
+            except requests.exceptions.Timeout:
+                continue  # Try again
+            except Exception as e:
+                return jsonify({
+                    'success': False,
+                    'error': f'Query execution error: {str(e)}'
+                }), 500
+
+        # Timeout after all attempts
         return jsonify({
-            'success': True,
-            'ui_status': ui_response.status_code,
-            'statement_status': statement_response.status_code,
-            'statement_response': statement_response.text[:500] if statement_response.status_code == 200 else 'N/A'
-        })
-        
+            'success': False,
+            'error': f'Query timed out after {max_attempts} attempts'
+        }), 504
+
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': str(e),
-            'error_type': type(e).__name__
+            'error': f'Request processing failed: {str(e)}'
         }), 500
 
 @app.route('/api/query/simple-test')
@@ -1212,7 +1081,7 @@ def simple_trino_test():
         
         # Make a simple request to Trino
         response = requests.post(
-            'http://trino-coordinator:8080/v1/statement',
+            'http://localhost:8080/v1/statement',
             data='SHOW CATALOGS',
             headers={'Content-Type': 'application/json', 'X-Trino-User': 'trino'},
             timeout=10
@@ -1229,7 +1098,7 @@ def simple_trino_test():
                 time.sleep(1)
                 
                 status_response = requests.get(
-                    f'http://trino-coordinator:8080/v1/query/{query_id}',
+                    f'http://localhost:8080/v1/query/{query_id}',
                     headers={'X-Trino-User': 'trino'},
                     timeout=10
                 )
@@ -1275,7 +1144,7 @@ def debug_trino_communication():
         
         # Test 1: Basic connectivity
         try:
-            ui_response = requests.get('http://trino-coordinator:8080/ui/', timeout=5)
+            ui_response = requests.get('http://localhost:8080/ui/', timeout=5)
             debug_info['test_results'].append({
                 'test': 'Basic connectivity to Trino UI',
                 'status': 'SUCCESS' if ui_response.status_code == 200 else 'FAILED',
@@ -1292,7 +1161,7 @@ def debug_trino_communication():
         # Test 2: Submit simple query
         try:
             query_response = requests.post(
-                'http://trino-coordinator:8080/v1/statement',
+                'http://localhost:8080/v1/statement',
                 data='SELECT 1 as test',
                 headers={'Content-Type': 'application/json', 'X-Trino-User': 'trino'},
                 timeout=10
@@ -2748,11 +2617,26 @@ def run_test_operation(operation_id, intents):
                             ok = False
                             error_message = f"Found {fail_count} test failures/errors despite successful exit code"
 
+                    # Check for specific connection errors
+                    if 'failed to resolve' in output_lower or 'name or service not known' in output_lower:
+                        ok = False
+                        error_message = "Database connection error: Cannot resolve Trino hostname. Check network connectivity and service status."
+                    elif 'max retries exceeded' in output_lower:
+                        ok = False
+                        error_message = "Database connection error: Cannot connect to Trino coordinator. Verify Trino service is running."
+
                 # If we have error output, something went wrong
                 if tj.get('error') and tj['error'].strip():
                     ok = False
                     if not error_message:
                         error_message = tj['error']
+
+                        # Provide specific guidance for common errors
+                        error_lower = tj['error'].lower()
+                        if 'failed to resolve' in error_lower or 'name or service not known' in error_lower:
+                            error_message += " (Suggestion: Check dbt profile configuration and network connectivity)"
+                        elif 'max retries exceeded' in error_lower:
+                            error_message += " (Suggestion: Verify Trino coordinator is running and accessible)"
             else:
                 ok = False
                 error_message = f"API returned HTTP {test_resp.status_code}: {test_resp.text[:200]}"
@@ -2794,7 +2678,7 @@ def run_test_operation(operation_id, intents):
         else:
             result = {
                 'success': False,
-                'reply': f'Some tests failed. {error_message}',
+                'reply': 'Test operation completed with issues. See details below.',
                 'ui_blocks': [{
                     'type': 'metric',
                     'title': 'Test Results',
@@ -4219,4 +4103,8 @@ def write_rows_to_seed_csv(rows):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Simplified startup for debugging
+    print("Starting FOSS Data Platform Dashboard...")
+    print("Trino URL: http://localhost:8080")
+    print("Dashboard will be available at: http://localhost:5000")
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

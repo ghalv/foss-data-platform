@@ -106,6 +106,30 @@ services:
       - data-platform
     restart: unless-stopped
 
+  # Hive Metastore for Iceberg catalog (temporarily disabled for testing)
+  # hive-metastore:
+  #   image: apache/hive:4.0.0
+  #   container_name: hive-metastore
+  #   ports:
+  #     - "9083:9083"
+  #   environment:
+  #     - SERVICE_NAME=hive-metastore
+  #     - HIVE_METASTORE_PORT=9083
+  #     - HIVE_METASTORE_DB_HOST=postgres
+  #     - HIVE_METASTORE_DB_PORT=5432
+  #     - HIVE_METASTORE_DB_NAME=hive_metastore
+  #     - HIVE_METASTORE_DB_USER=dagster
+  #     - HIVE_METASTORE_DB_PASSWORD=dagster123
+  #   volumes:
+  #     - ./config/hive:/opt/hive/conf
+  #     - ./data/hive:/opt/hive/data
+  #   entrypoint: ["/opt/hive/conf/init-hive.sh"]
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - data-platform
+  #   restart: unless-stopped
+
   # Prometheus for monitoring
   prometheus:
     image: prom/prometheus:latest
@@ -256,8 +280,8 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     volumes:
-      - ./data/zookeeper:/var/lib/zookeeper/data
-      - ./data/zookeeper:/var/lib/zookeeper/log
+      - ./data/zookeeper/data:/var/lib/zookeeper/data
+      - ./data/zookeeper/log:/var/lib/zookeeper/log
     networks:
       - data-platform
     restart: unless-stopped

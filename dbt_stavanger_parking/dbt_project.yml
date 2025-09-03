@@ -17,14 +17,9 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
-# Ensure required schemas exist (Trino memory connector)
+# Ensure required schemas exist (Iceberg)
 on-run-start:
-  - "CREATE SCHEMA IF NOT EXISTS memory.default_raw_data"
-  - "CREATE SCHEMA IF NOT EXISTS memory.default_staging"
-  - "CREATE SCHEMA IF NOT EXISTS memory.default_intermediate"
-  - "CREATE SCHEMA IF NOT EXISTS memory.default_marts"
-  - "CREATE SCHEMA IF NOT EXISTS memory.default_marts_core"
-  - "CREATE SCHEMA IF NOT EXISTS memory.default_marts_marketing"
+  - "CREATE SCHEMA IF NOT EXISTS memory.parking_data"
 
 # Configuring data models
 models:
@@ -32,24 +27,24 @@ models:
     # Config indicated by + and applies to all files under models/example/
     staging:
       +materialized: view
-      +schema: default_staging
+      +schema: parking_data
     intermediate:
       +materialized: view
-      +schema: default_intermediate
+      +schema: parking_data
     marts:
       +materialized: table
-      +schema: default_marts
-      core:
-        +materialized: table
-        +schema: default_marts_core
-      marketing:
-        +materialized: table
-        +schema: default_marts_marketing
+      +schema: parking_data
+    core:
+      +materialized: table
+      +schema: parking_data
+    marketing:
+      +materialized: table
+      +schema: parking_data
 
 # Seeds configuration
 seeds:
   stavanger_parking:
-    +schema: default_raw_data
+    +schema: parking_data
     +column_types:
       name: varchar(255)
       available_spaces: integer

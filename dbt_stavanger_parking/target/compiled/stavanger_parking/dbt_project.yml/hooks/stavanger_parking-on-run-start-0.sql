@@ -1,1 +1,1 @@
-CREATE SCHEMA IF NOT EXISTS memory.default_raw_data
+CREATE SCHEMA IF NOT EXISTS memory.parking_data

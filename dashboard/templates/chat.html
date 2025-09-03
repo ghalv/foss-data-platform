@@ -558,9 +558,12 @@
                                     messageDiv.textContent = 'Operation completed successfully';
                                     messageDiv.style.color = '#28a745';
                                 } else {
-                                    messageDiv.textContent = 'Operation failed - detailed error information shown below';
-                                    messageDiv.style.color = '#dc3545';
-                                    messageDiv.style.fontWeight = 'bold';
+                                    // Don't override the message if we have UI blocks with detailed error info
+                                    if (!progressData.ui_blocks || progressData.ui_blocks.length === 0) {
+                                        messageDiv.textContent = 'Operation failed';
+                                        messageDiv.style.color = '#dc3545';
+                                        messageDiv.style.fontWeight = 'bold';
+                                    }
                                 }
                             }
 
@@ -611,10 +614,10 @@
                                 }
                             }, 100);
 
-                            // Update message with final results
+                            // Update message with final results only if we don't have detailed UI blocks
                             const textEl = messageEl.querySelector('.message');
-                            if (textEl && progressData.reply) {
-                                // If the reply contains new information, append it
+                            if (textEl && progressData.reply && (!progressData.ui_blocks || progressData.ui_blocks.length === 0)) {
+                                // If the reply contains new information and we don't have UI blocks, append it
                                 if (progressData.reply && progressData.reply !== textEl.textContent) {
                                     textEl.innerHTML += '<br><br>' + progressData.reply.replace(/\n/g, '<br>');
                                 }
