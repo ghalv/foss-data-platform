@@ -56,65 +56,41 @@ services:
       retries: 3
       start_period: 60s
 
-  # Apache Trino for querying
+  # Apache Trino for querying (Reference Repo Configuration)
   trino-coordinator:
-    image: trinodb/trino:latest
-    container_name: trino-coordinator
+    hostname: trino
+    container_name: trino
+    image: 'trinodb/trino:latest'
     ports:
-      - "8080:8080"
-    environment:
-      - COORDINATOR=true
-      - DISCOVERY_URI=http://trino-coordinator:8080
+      - '8080:8080'
     volumes:
       - ./config/trino:/etc/trino
-      - ./data:/data
     networks:
       - data-platform
-    restart: unless-stopped
 
-  trino-worker:
-    image: trinodb/trino:latest
-    container_name: trino-worker
-    environment:
-      - COORDINATOR=false
-      - DISCOVERY_URI=http://trino-coordinator:8080
-      - DISCOVERY=http://trino-coordinator:8080
-    volumes:
-      - ./config/trino:/etc/trino
-      - ./data:/data
-    depends_on:
-      - trino-coordinator
-    networks:
-      - data-platform
-    restart: unless-stopped
-
-  # MinIO for S3-compatible object storage
+  # MinIO for S3-compatible object storage (Reference Repo Configuration)
   minio:
-    image: minio/minio:latest
+    hostname: minio
+    image: minio/minio
     container_name: minio
     ports:
-      - "9002:9000"
-      - "9003:9001"
+      - '9000:9000'
+      - '9001:9001'
     environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-CHANGE_THIS_PASSWORD}
-    volumes:
-      - ./data/services/minio:/data
-      - ./config/minio:/scripts
-      - ./config/minio:/etc/minio
-    command: server /data --console-address ":9001" --anonymous
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    command: server /data --console-address ":9001"
     networks:
       - data-platform
-    restart: unless-stopped
 
-  # MinIO client job to create warehouse bucket
+  # MinIO client job to create warehouse bucket (Reference Repo Configuration)
   mc-job:
     image: 'minio/mc'
     container_name: mc-job
     entrypoint: |
       /bin/bash -c "
       sleep 5;
-      /usr/bin/mc config --quiet host add myminio http://minio:9000 admin admin123;
+      /usr/bin/mc config --quiet host add myminio http://minio:9000 minio minio123;
       /usr/bin/mc mb --quiet myminio/datalake
       "
     depends_on:
@@ -122,7 +98,7 @@ services:
     networks:
       - data-platform
 
-  # PostgreSQL for Hive Metastore
+  # PostgreSQL for Hive Metastore (Reference Repo Configuration)
   metastore_db:
     image: postgres:11
     hostname: metastore_db
@@ -133,9 +109,8 @@ services:
       POSTGRES_DB: metastore
     networks:
       - data-platform
-    restart: unless-stopped
 
-  # Hive Metastore for Iceberg catalog
+  # Hive Metastore for Iceberg catalog (Reference Repo Configuration)
   hive-metastore:
     container_name: hive-metastore
     hostname: hive-metastore
@@ -147,18 +122,29 @@ services:
       HIVE_METASTORE_JDBC_URL: jdbc:postgresql://metastore_db:5432/metastore
       HIVE_METASTORE_USER: hive
       HIVE_METASTORE_PASSWORD: hive
-      HIVE_METASTORE_WAREHOUSE_DIR: s3://datalake/
+      HIVE_METASTORE_WAREHOUSE_DIR: file:///tmp/hive-warehouse
       S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: admin
-      S3_SECRET_KEY: admin123
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio123
       S3_PATH_STYLE_ACCESS: "true"
       REGION: ""
+      GOOGLE_CLOUD_KEY_FILE_PATH: ""
+      AZURE_ADL_CLIENT_ID: ""
+      AZURE_ADL_CREDENTIAL: ""
+      AZURE_ADL_REFRESH_URL: ""
+      AZURE_ABFS_STORAGE_ACCOUNT: ""
+      AZURE_ABFS_ACCESS_KEY: ""
+      AZURE_ABFS_OAUTH: ""
+      AZURE_ABFS_OAUTH_TOKEN_PROVIDER: ""
+      AZURE_ABFS_OAUTH_CLIENT_ID: ""
+      AZURE_ABFS_OAUTH_SECRET: ""
+      AZURE_ABFS_OAUTH_ENDPOINT: ""
+      AZURE_WASB_STORAGE_ACCOUNT: ""
+      AZURE_WASB_ACCESS_KEY: ""
     depends_on:
       - metastore_db
-      - minio
     networks:
       - data-platform
-    restart: unless-stopped
 
   # Prometheus for monitoring
   prometheus:
@@ -430,6 +416,9 @@ services:
 networks:
   data-platform:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
 
 volumes:
   data:
