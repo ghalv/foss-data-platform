@@ -54,14 +54,22 @@ class PlatformStressTester:
 
     def log(self, level: str, message: str):
         """Log a message with appropriate level"""
+        timestamp = datetime.now().strftime('%H:%M:%S')
         if level == 'INFO':
+            print(f"[{timestamp}] 🔍 {message}")
             logging.info(message)
         elif level == 'ERROR':
+            print(f"[{timestamp}] ❌ {message}")
             logging.error(message)
         elif level == 'WARNING':
+            print(f"[{timestamp}] ⚠️  {message}")
             logging.warning(message)
         elif level == 'SUCCESS':
+            print(f"[{timestamp}] ✅ {message}")
             logging.info(f"✅ {message}")
+        elif level == 'PROGRESS':
+            print(f"[{timestamp}] ⏳ {message}")
+            logging.info(message)
 
     def test_service_health(self) -> Dict[str, Any]:
         """Test all service health endpoints"""
@@ -109,6 +117,7 @@ class PlatformStressTester:
     def test_pipeline_execution(self) -> Dict[str, Any]:
         """Test end-to-end pipeline execution"""
         self.log('INFO', 'Testing pipeline execution...')
+        self.log('PROGRESS', 'Checking pipeline API endpoints...')
 
         try:
             # Test pipeline API endpoints
@@ -127,15 +136,22 @@ class PlatformStressTester:
                     results[endpoint] = False
 
             # Test pipeline run (if available)
+            self.log('PROGRESS', 'Testing pipeline run execution...')
             try:
                 payload = {
                     'pipeline': 'stavanger_parking',
                     'steps': ['seed']
                 }
+                self.log('PROGRESS', 'Sending pipeline run request...')
                 response = requests.post(f"{self.base_url}/api/pipeline/run",
-                                       json=payload, timeout=120)
+                                       json=payload, timeout=60)  # Reduced timeout
                 results['pipeline_execution'] = response.status_code in [200, 202]
-            except Exception:
+                self.log('PROGRESS', f'Pipeline run response: HTTP {response.status_code}')
+            except requests.exceptions.Timeout:
+                self.log('WARNING', 'Pipeline run timed out after 60 seconds')
+                results['pipeline_execution'] = False
+            except Exception as e:
+                self.log('WARNING', f'Pipeline run failed: {str(e)}')
                 results['pipeline_execution'] = False
 
             success_count = sum(results.values())
@@ -155,6 +171,7 @@ class PlatformStressTester:
     def test_data_flow(self) -> Dict[str, Any]:
         """Test data flow through the platform"""
         self.log('INFO', 'Testing data flow...')
+        self.log('PROGRESS', 'Testing query execution...')
 
         try:
             # Test query execution
@@ -162,8 +179,9 @@ class PlatformStressTester:
                 'query': 'SELECT 1 as test_value'
             }
 
+            self.log('PROGRESS', 'Sending query to Trino...')
             response = requests.post(f"{self.base_url}/api/query/execute",
-                                   json=query_payload, timeout=30)
+                                   json=query_payload, timeout=45)
 
             if response.status_code == 200:
                 data = response.json()

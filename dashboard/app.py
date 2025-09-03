@@ -521,7 +521,7 @@ def get_pipeline_status():
             try:
                 # Use Trino's HTTP API to execute queries
                 response = requests.post(
-                    'http://localhost:8080/v1/statement',
+                    'http://trino-coordinator:8080/v1/statement',
                     json={'query': query},
                     headers={'Content-Type': 'application/json'},
                     timeout=10
@@ -547,7 +547,7 @@ def get_pipeline_status():
             LIMIT 5
             """
             insights_response = requests.post(
-                'http://localhost:8080/v1/statement',
+                'http://trino-coordinator:8080/v1/statement',
                 json={'query': insights_query},
                 headers={'Content-Type': 'application/json'},
                 timeout=10
@@ -614,7 +614,7 @@ def get_pipeline_metrics():
         
         try:
             response = requests.post(
-                'http://localhost:8080/v1/statement',
+                'http://trino-coordinator:8080/v1/statement',
                 json={'query': metrics_query},
                 headers={'Content-Type': 'application/json'},
                 timeout=10
@@ -1175,7 +1175,7 @@ def execute_query():
         start_time = time.time()
 
         # Execute query via Trino HTTP API
-        trino_url = "http://localhost:8080/v1/statement"
+        trino_url = "http://trino-coordinator:8080/v1/statement"
         headers = {
             'Content-Type': 'application/json',
             'X-Trino-User': 'trino'
@@ -1205,7 +1205,7 @@ def execute_query():
             time.sleep(poll_interval)
 
             try:
-                result_response = requests.get(f"http://localhost:8080/v1/query/{query_id}",
+                result_response = requests.get(f"http://trino-coordinator:8080/v1/query/{query_id}",
                                              headers=headers, timeout=5)
 
                 if result_response.status_code == 200:
@@ -1272,7 +1272,7 @@ def simple_trino_test():
         
         # Make a simple request to Trino
         response = requests.post(
-            'http://localhost:8080/v1/statement',
+            'http://trino-coordinator:8080/v1/statement',
             data='SHOW CATALOGS',
             headers={'Content-Type': 'application/json', 'X-Trino-User': 'trino'},
             timeout=10
@@ -1289,7 +1289,7 @@ def simple_trino_test():
                 time.sleep(1)
                 
                 status_response = requests.get(
-                    f'http://localhost:8080/v1/query/{query_id}',
+                    f'http://trino-coordinator:8080/v1/query/{query_id}',
                     headers={'X-Trino-User': 'trino'},
                     timeout=10
                 )
@@ -1335,7 +1335,7 @@ def debug_trino_communication():
         
         # Test 1: Basic connectivity
         try:
-            ui_response = requests.get('http://localhost:8080/ui/', timeout=5)
+            ui_response = requests.get('http://trino-coordinator:8080/ui/', timeout=5)
             debug_info['test_results'].append({
                 'test': 'Basic connectivity to Trino UI',
                 'status': 'SUCCESS' if ui_response.status_code == 200 else 'FAILED',
@@ -1352,7 +1352,7 @@ def debug_trino_communication():
         # Test 2: Submit simple query
         try:
             query_response = requests.post(
-                'http://localhost:8080/v1/statement',
+                'http://trino-coordinator:8080/v1/statement',
                 data='SELECT 1 as test',
                 headers={'Content-Type': 'application/json', 'X-Trino-User': 'trino'},
                 timeout=10

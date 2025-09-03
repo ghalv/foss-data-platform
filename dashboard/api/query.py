@@ -240,5 +240,5 @@ class TrinoAPI:
         except:
             return False
 
-# Global Trino API instance
-trino_api = TrinoAPI()
+# Global Trino API instance - use service name when running in Docker
+trino_api = TrinoAPI(host="trino-coordinator", port=8080)

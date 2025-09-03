@@ -6,7 +6,7 @@ select
     total_capacity,
     current_occupancy,
     available_spaces
-from "memory"."parking_data_staging"."stg_parking_data"
+from "memory"."default_staging"."stg_parking_data"
 where current_occupancy > total_capacity
    or available_spaces < 0
    or total_capacity < 0

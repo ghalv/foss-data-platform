@@ -1,8 +1,8 @@
 
 
 with source as (
-    -- Use raw_parking_data seed from API
-    select * from memory.parking_data_parking_data.raw_parking_data
+    -- Use raw_parking_data source defined in sources.yml
+    select * from "memory"."default"."raw_parking_data"
 ),
 
 staged as (

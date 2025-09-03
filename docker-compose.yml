@@ -78,6 +78,7 @@ services:
     environment:
       - COORDINATOR=false
       - DISCOVERY_URI=http://trino-coordinator:8080
+      - DISCOVERY=http://trino-coordinator:8080
     volumes:
       - ./config/trino:/etc/trino
       - ./data:/data
