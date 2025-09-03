@@ -2110,6 +2110,7 @@ def api_chat():
 
         # Enhanced intent recognition with more capabilities
         intents = analyze_user_intent(user_message, messages, messages)
+        print(f"DEBUG: User message: '{user_message}' -> Detected intent: {intents.get('action')}")
 
         # Force conversational patterns to trigger operations
         msg_lower = user_message.lower()
@@ -2117,9 +2118,11 @@ def api_chat():
             # Force status check for pipeline inquiries
             if any(phrase in msg_lower for phrase in ['are there any pipelines', 'what pipelines', 'pipeline status', 'tell me about the failed', 'information about']):
                 intents['action'] = 'check_status'
+                print("DEBUG: Forced status check intent")
             # Force test execution for test requests
             elif any(phrase in msg_lower for phrase in ['run a test', 'run some tests', 'run test', 'execute test', 'can you run a test', 'test it']):
                 intents['action'] = 'run_tests'
+                print("DEBUG: Forced test intent")
 
         # For long-running operations, create an operation ID and start async processing
         operation_id = None
@@ -2134,6 +2137,7 @@ def api_chat():
             thread = threading.Thread(target=run_operation_async, args=(operation_id, intents, user_message))
             thread.daemon = True
             thread.start()
+            print(f"DEBUG: Started async operation thread for {intents.get('action')} with ID: {operation_id}")
 
             # Provide informative response with context - dynamic content in UI blocks
             action_name = intents.get('action').replace('_', ' ').title()
@@ -2152,7 +2156,7 @@ def api_chat():
             else:
                 response_message = f"⚙️ Starting {action_name.lower()} operation. The progress card below will keep you updated on the status."
 
-            return jsonify({
+            response_data = {
                 'success': True,
                 'reply': response_message,
                 'operation_id': operation_id,
@@ -2169,7 +2173,9 @@ def api_chat():
                         'show_details': True
                     }
                 ]
-            })
+            }
+            print(f"DEBUG: Returning response with UI blocks: {len(response_data['ui_blocks'])} blocks")
+            return jsonify(response_data)
 
         # Handle different intent types (short operations)
         if intents.get('action') == 'check_status':
@@ -2354,6 +2360,16 @@ def run_operation_async(operation_id, intents, user_message):
     try:
         progress_file = f'/tmp/operation_{operation_id}.json'
 
+        # Register operation in global registry for stop functionality
+        active_operations[operation_id] = {
+            'operation_id': operation_id,
+            'status': 'running',
+            'intents': intents,
+            'user_message': user_message,
+            'start_time': time.time(),
+            'progress_file': progress_file
+        }
+
         # Initialize progress
         progress_data = {
             'operation_id': operation_id,
@@ -2392,6 +2408,9 @@ def run_operation_async(operation_id, intents, user_message):
         with open(progress_file, 'w') as f:
             json.dump(result, f)
 
+        # Clean up from active operations registry
+        active_operations.pop(operation_id, None)
+
         # Clean up old progress files (older than 1 hour)
         cleanup_old_progress_files()
 
@@ -2415,6 +2434,9 @@ def run_operation_async(operation_id, intents, user_message):
                 json.dump(error_result, f)
         except:
             pass
+
+        # Clean up from active operations registry
+        active_operations.pop(operation_id, None)
 
         # Clean up old progress files
         cleanup_old_progress_files()
@@ -2975,8 +2997,11 @@ def analyze_user_intent(message, history, messages=None):
     msg_lower = message.lower()
     intents = {'action': None, 'pipeline': 'stavanger_parking', 'parameters': {}}
 
-    # Pipeline operations - expanded recognition
-    if any(kw in msg_lower for kw in ['run pipeline', 'start pipeline', 'execute pipeline', 'run stavanger', 'start the pipeline']):
+    # Pipeline operations - expanded recognition with more flexible matching
+    pipeline_keywords = ['run pipeline', 'start pipeline', 'execute pipeline', 'run stavanger', 'start the pipeline',
+                        'run the stavanger', 'execute stavanger', 'run stavanger parking', 'start stavanger',
+                        'run it', 'try to run', 'please run', 'run now', 'start now']
+    if any(kw in msg_lower for kw in pipeline_keywords):
         intents['action'] = 'run_pipeline'
     elif any(kw in msg_lower for kw in ['run test', 'execute test', 'test pipeline', 'run tests', 'execute tests', 'run a test', 'test it', 'run some tests']):
         intents['action'] = 'run_tests'
@@ -3012,14 +3037,15 @@ def analyze_user_intent(message, history, messages=None):
                     intents['action'] = 'run_tests'
 
             # If assistant suggested running pipeline, handle affirmative responses
-            elif ('run pipeline' in last_assistant_msg or 'pipeline again' in last_assistant_msg or 'execute pipeline' in last_assistant_msg or 'run the pipeline' in last_assistant_msg):
-                if any(affirmative in msg_lower for affirmative in ['yes', 'please', 'go ahead', 'run', 'do it', 'okay', 'sure', 'lets do it', 'run it']):
+            elif ('run pipeline' in last_assistant_msg or 'pipeline again' in last_assistant_msg or 'execute pipeline' in last_assistant_msg or 'run the pipeline' in last_assistant_msg or 'failed pipeline' in last_assistant_msg):
+                affirmative_responses = ['yes', 'please', 'go ahead', 'run', 'do it', 'okay', 'sure', 'lets do it', 'run it', 'try to run', 'please try', 'run now']
+                if any(affirmative in msg_lower for affirmative in affirmative_responses):
                     intents['action'] = 'run_pipeline'
 
-            # If assistant mentioned failed pipelines, handle requests for details
+            # If assistant mentioned failed pipelines, handle requests for details or fixes
             elif ('failed pipeline' in last_assistant_msg or 'attention' in last_assistant_msg or 'need attention' in last_assistant_msg):
-                if any(detail_req in msg_lower for detail_req in ['what kind', 'what kind of', 'why', 'what happened', 'details', 'more info', 'tell me more']):
-                    intents['action'] = 'run_tests_and_check_status'  # Get detailed diagnostics
+                if any(detail_req in msg_lower for detail_req in ['what kind', 'what kind of', 'why', 'what happened', 'details', 'more info', 'tell me more', 'fix it', 'run it', 'try to run']):
+                    intents['action'] = 'run_pipeline'  # Run the pipeline to fix issues
 
     # Handle combined requests like "Please do both" or "run tests and check status"
     if any(kw in msg_lower for kw in ['both', 'and', 'also', 'together', 'please do']):
@@ -4100,6 +4126,76 @@ def write_rows_to_seed_csv(rows):
         for r in rows:
             w.writerow({k: r.get(k, '') for k in fieldnames})
     return seed_path
+
+
+# Global registry for active operations
+active_operations = {}
+
+@app.route('/api/operations/stop', methods=['POST'])
+def stop_operation():
+    """Stop a running operation"""
+    try:
+        data = request.get_json()
+        operation_id = data.get('operation_id')
+
+        if not operation_id:
+            return jsonify({
+                'success': False,
+                'error': 'operation_id is required'
+            }), 400
+
+        # Check if operation exists and is running
+        if operation_id not in active_operations:
+            return jsonify({
+                'success': False,
+                'error': 'Operation not found or not running'
+            }), 404
+
+        operation_info = active_operations[operation_id]
+
+        # Mark the operation as stopped
+        operation_info['status'] = 'stopped'
+        operation_info['stopped_at'] = datetime.now().isoformat()
+
+        # Update the progress file to reflect stopped status
+        progress_file = operation_info.get('progress_file')
+        if progress_file and os.path.exists(progress_file):
+            try:
+                with open(progress_file, 'r') as f:
+                    current_progress = json.load(f)
+
+                current_progress.update({
+                    'status': 'stopped',
+                    'message': 'Operation stopped by user',
+                    'progress': 0,
+                    'completed': True
+                })
+
+                with open(progress_file, 'w') as f:
+                    json.dump(current_progress, f)
+            except Exception as e:
+                print(f"Warning: Could not update progress file: {e}")
+
+        # Remove from active operations after a delay
+        def cleanup_operation():
+            time.sleep(5)  # Keep in registry for a few seconds for UI updates
+            active_operations.pop(operation_id, None)
+
+        # Run cleanup in background thread
+        import threading
+        threading.Thread(target=cleanup_operation, daemon=True).start()
+
+        return jsonify({
+            'success': True,
+            'message': f'Operation {operation_id} stopped successfully',
+            'operation_id': operation_id
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 if __name__ == '__main__':
