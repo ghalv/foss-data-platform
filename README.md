@@ -1,318 +1,342 @@
 # FOSS Data Platform
 
-A modern, lean, and high-performing open-source data platform built with best-in-class FOSS tools.
+A modern, open-source data platform built with best-in-class FOSS tools for reliable, scalable data engineering.
 
-## Architecture Overview
+## Current Architecture Overview
 
 ```
-🎯 PIPELINE-CENTRIC ARCHITECTURE
+🎯 LAKEHOUSE ARCHITECTURE - CURRENT STATE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                  PIPELINES LAYER                                        │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │
-│  │ Sales Pipeline  │  │Marketing Pipeline│  │  User Pipeline │  │  ...Pipeline   │    │
-│  │   ├─ DBT        │  │   ├─ DBT        │  │   ├─ DBT        │  │   ├─ DBT        │    │
-│  │   ├─ Dagster    │  │   ├─ Dagster    │  │   ├─ Dagster    │  │   ├─ Dagster    │    │
-│  │   ├─ Notebooks  │  │   ├─ Notebooks  │  │   ├─ Notebooks  │  │   ├─ Notebooks  │    │
-│  │   └─ Data       │  │   └─ Data       │  │   └─ Data       │  │   └─ Data       │    │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────┘    │
+│                                 WORKING PIPELINE                                        │
+│  ┌─────────────────────────────────────────────────────────────────────────────────┐    │
+│  │                        STAVANGER PARKING PIPELINE                               │    │
+│  │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │    │
+│  │   │   Data Source   │  │   dbt Pipeline  │  │  Iceberg Tables  │  │  Dashboard  │ │    │
+│  │   │   (REST API)    │  │   (Transform)   │  │   (Storage)      │  │   (Web UI)  │ │    │
+│  │   │                 │  │   ├─ Bronze     │  │   ├─ ACID        │  │   ├─ Mgmt   │ │    │
+│  │   │                 │  │   ├─ Silver     │  │   ├─ Time Travel │  │   ├─ Browse │ │    │
+│  │   │                 │  │   └─ Gold       │  │   └─ Schema Evol │  │   └─ Health │ │    │
+│  │   └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────┘ │    │
+│  └─────────────────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
                                          │
                                          ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                               PLATFORM LAYER                                           │
+│                              PLATFORM INFRASTRUCTURE                                   │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │
-│  │   JupyterLab   │  │     Dagster     │  │      DBT        │  │   Apache Trino  │    │
-│  │  (Interactive) │  │  (Orchestration)│  │(Transformation) │  │ (Query Engine)  │    │
+│  │  Flask Web App │  │   Docker Compose │  │   Python Scripts │  │   Shell Scripts │    │
+│  │   (Dashboard)   │  │  (Orchestration) │  │   (Automation)   │  │   (Management)  │    │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────┘    │
 │                                                                                       │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                        │
-│  │    Grafana     │  │   Prometheus    │  │    Portainer    │                        │
-│  │  (Visualization)│  │  (Monitoring)  │  │(Container Mgmt) │                        │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘                        │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-                                         │
-                                         ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                               STORAGE LAYER                                            │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │
-│  │ PostgreSQL DB  │  │     MinIO       │  │   Iceberg       │  │     Kafka       │    │
-│  │  (Metadata)    │  │   (Object Store)│  │ (Data Lake)     │  │  (Streaming)    │    │
+│  │   Trino         │  │     MinIO       │  │    Dagster      │  │    Portainer    │    │
+│  │  (Configured)   │  │  (Configured)   │  │  (Configured)   │  │  (Configured)   │    │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Architectural Benefits
+### Current Status
 
-**🎯 Pipeline Autonomy:**
-- Each pipeline operates independently
-- Isolated data, code, and configurations
-- Team-specific ownership and deployment
+**🟢 ACTIVE COMPONENTS:**
+- **dbt Pipeline**: SQL-based data transformations with medallion architecture
+- **Apache Iceberg**: Table format for lakehouse with ACID transactions
+- **Flask Dashboard**: Web interface for pipeline management and data browsing
+- **Docker Compose**: Container orchestration for all services
 
-**🔄 Platform Services:**
-- Shared infrastructure for all pipelines
-- Centralized monitoring and orchestration
-- Consistent tooling and governance
+**🟡 CONFIGURED BUT NOT INTEGRATED:**
+- **Trino**: Distributed SQL query engine (ready for integration)
+- **MinIO**: S3-compatible object storage (ready for integration)
+- **Dagster**: Pipeline orchestration (configured but dbt handles current orchestration)
 
-**📊 Scalable Storage:**
-- Multi-format data lake support
-- Streaming and batch processing
-- Metadata-driven data management
+**🔴 FUTURE ENHANCEMENTS:**
+- Multi-pipeline support
+- Advanced analytics with Trino
+- Object storage integration with MinIO
+- Enhanced monitoring and alerting
 
 ## Technology Stack
 
-### Core Data Platform
-- **Interactive Development**: JupyterLab (Interactive notebooks & analysis)
-- **Pipeline Orchestration**: Dagster (Job scheduling & dependency management)
-- **Data Transformation**: DBT (SQL-based data modeling & testing)
-- **Query Engine**: Apache Trino (Distributed SQL queries)
-- **Storage Layer**: Apache Iceberg / Delta Lake (Data lake formats)
+### 🟢 ACTIVE COMPONENTS (Currently Working)
+- **Data Transformation**: dbt (SQL-based transformations with medallion architecture)
+- **Storage Layer**: Apache Iceberg (ACID transactions, time travel, schema evolution)
+- **Web Dashboard**: Flask + Bootstrap (Pipeline management, data browsing, health monitoring)
+- **Container Orchestration**: Docker Compose (Service orchestration and deployment)
 
-### Infrastructure & DevOps
-- **Container Orchestration**: Docker & Docker Compose
-- **Infrastructure as Code**: Terraform
-- **Container Management**: Portainer
-- **Monitoring**: Prometheus + Grafana
-- **Version Control**: Git
-- **Secrets Management**: SOPS + Age
+### 🟡 CONFIGURED COMPONENTS (Ready for Integration)
+- **Query Engine**: Trino (Distributed SQL queries - configured in docker-compose.yml)
+- **Object Storage**: MinIO (S3-compatible storage - configured in docker-compose.yml)
+- **Pipeline Orchestration**: Dagster (Job scheduling - configured but not actively used)
+- **Container Management**: Portainer (Docker management - configured in docker-compose.yml)
 
-### Development Tools
-- **CLI Tools**: Custom pipeline creation scripts
-- **Testing Framework**: Python-based QA test suite
-- **Code Quality**: Automated formatting & linting
-- **Documentation**: Markdown-based docs with templates
-- **Cleanup System**: Automated data lifecycle management
+### 🔧 DEVELOPMENT & MANAGEMENT
+- **Python Scripts**: Automation and utility scripts in `scripts/` and `tools/scripts/`
+- **Shell Scripts**: Service management scripts in `scripts/` and `infrastructure/`
+- **Version Control**: Git for code management
+- **Documentation**: Markdown-based docs in `docs/` directory
 
 ## Quick Start
 
 ### Prerequisites
-- Debian 12 VPS
-- Docker and Docker Compose
-- Terraform
-- SOPS + Age for secrets management
+- Docker and Docker Compose installed
+- Python 3.11+ (for local development)
+- Git for version control
 
-### Setup Infrastructure
+### 🚀 Start the Platform
 ```bash
-cd infrastructure
-terraform init
-terraform plan
-terraform apply
-```
+# Clone the repository
+git clone <repository-url>
+cd foss-dataplatform
 
-### Deploy Platform
-```bash
+# Start all services with Docker Compose
 docker-compose up -d
+
+# Start the dashboard (alternative method)
+./scripts/start_dashboard.sh
 ```
 
-### Create Your First Pipeline
+### 🌐 Access the Platform
+Once started, access these services:
+
+#### 🟢 ACTIVE SERVICES:
+- **Main Dashboard**: http://localhost:5000 (Pipeline management & data browsing)
+- **Pipeline Management**: http://localhost:5000/pipeline-management
+- **Data Browser**: http://localhost:5000/data-browser
+- **Health Check**: http://localhost:5000/health
+- **About Page**: http://localhost:5000/about
+
+#### 🟡 CONFIGURED SERVICES (May require additional setup):
+- **Trino Query Engine**: http://localhost:8080 (SQL analytics)
+- **MinIO Object Storage**: http://localhost:9000 (S3-compatible storage)
+- **Portainer**: http://localhost:9001 (Container management)
+- **Dagster**: http://localhost:3000 (Pipeline orchestration UI)
+
+### 📊 Current Pipeline
+The platform comes with a working **Stavanger Parking Pipeline** that:
+- Ingests real-time parking data from Stavanger municipality API
+- Transforms data using dbt with medallion architecture (Bronze → Silver → Gold)
+- Stores data in Apache Iceberg tables with ACID transactions
+- Provides web-based monitoring and data browsing
+
+### 🔧 Development Workflow
 ```bash
-# Create a new pipeline in seconds
-./tools/cli/create-pipeline.sh my_first_pipeline "My First Data Pipeline"
+# View pipeline data
+# Go to: http://localhost:5000/pipeline-management
 
-# This creates a complete pipeline structure with:
-# - DBT models, tests, and seeds
-# - Dagster orchestration code
-# - Jupyter notebooks for analysis
-# - Proper data directory structure
-# - Documentation templates
+# Browse processed data
+# Go to: http://localhost:5000/data-browser
+
+# Check system health
+# Go to: http://localhost:5000/health
 ```
 
-### Access Services
-- **Platform Dashboard**: http://your-vps:5000 (Main entry point)
-- **Pipeline Management**: http://your-vps:5000/pipeline-management
-- **Health Check**: http://your-vps:5000/health (Service status)
-- **System Metrics**: http://your-vps:5000/metrics (Performance monitoring)
-- **JupyterLab**: http://your-vps:8888 (Interactive development)
-- **Dagster**: http://your-vps:3000 (Pipeline orchestration)
-- **Grafana**: http://your-vps:3001 (Monitoring & visualization)
-- **Trino**: http://your-vps:8080 (SQL query engine)
-- **Portainer**: http://your-vps:9000 (Container management)
-
-## Project Structure
+## 📁 Project Structure & File Locations
 
 ```
-├── pipelines/                    # 🎯 Pipeline Projects (Scalable)
-│   ├── stavanger_parking/        # Example pipeline
-│   │   ├── dbt/                  # DBT models, tests, seeds
-│   │   ├── orchestration/        # Dagster assets & jobs
-│   │   ├── notebooks/            # Analysis & exploration
-│   │   ├── scripts/              # Pipeline utilities
-│   │   ├── config/               # Pipeline configuration
-│   │   ├── docs/                 # Pipeline documentation
-│   │   └── data/                 # Pipeline data (raw/staging/processed)
-│   │       ├── raw/              # Raw ingested data
-│   │       ├── staging/          # Cleaned data
-│   │       ├── processed/        # Final datasets
-│   │       └── temp/             # Temporary files
-│   ├── shared/                   # Shared components across pipelines
-│   │   ├── macros/               # Reusable DBT macros
-│   │   ├── tests/                # Shared test utilities
-│   │   ├── schemas/              # Common data schemas
-│   │   └── utilities/            # Shared utilities
-│   └── _templates/               # Pipeline creation templates
-│       └── pipeline_template/    # Complete pipeline template
+foss-dataplatform/
+├── 📊 pipelines/                          # 🎯 WHERE PIPELINES RESIDE
+│   └── stavanger_parking/                 # Current working pipeline
+│       ├── dbt/                           # 🏗️ WHERE TRANSFORMATIONS RESIDE
+│       │   ├── models/                    # dbt SQL models (Bronze/Silver/Gold)
+│       │   │   ├── bronze/                # Raw data models
+│       │   │   ├── silver/                # Cleaned data models
+│       │   │   └── gold/                  # Analytics-ready models
+│       │   ├── tests/                     # Data quality tests
+│       │   ├── macros/                    # Reusable SQL macros
+│       │   ├── seeds/                     # Static data files
+│       │   └── dbt_project.yml            # dbt configuration
+│       ├── data/                          # 💾 WHERE PIPELINE DATA RESIDES
+│       │   ├── raw/                       # Raw ingested data
+│       │   ├── staging/                   # Cleaned/transformed data
+│       │   └── processed/                 # Final processed datasets
+│       ├── docs/                          # Pipeline documentation
+│       └── scripts/                       # Pipeline-specific scripts
 │
-├── platform/                     # 🏗️ Platform Infrastructure
-│   ├── orchestration/            # Dagster workspace & jobs
-│   ├── monitoring/               # Monitoring configurations
-│   ├── security/                 # Security policies
-│   └── governance/               # Data governance rules
+├── 🏗️ platform/                           # Platform infrastructure (future use)
+│   ├── governance/                        # Data governance (placeholder)
+│   ├── monitoring/                        # Monitoring configs (placeholder)
+│   └── security/                          # Security policies (placeholder)
 │
-├── data/                         # 💾 Data Management
-│   ├── services/                 # Service-specific data
-│   └── pipelines/                # Pipeline-specific data
+├── 🔧 scripts/                            # ⚙️ WHERE CORE SCRIPTS RESIDE
+│   ├── start_dashboard.sh                 # Dashboard startup script
+│   ├── monitor_dashboard.sh               # Dashboard monitoring script
+│   └── [other automation scripts]         # Service management scripts
 │
-├── tools/                        # 🔧 Development Tools
-│   ├── cli/                      # Command-line utilities
-│   │   └── create-pipeline.sh    # Pipeline creation tool
-│   ├── scripts/                  # Utility scripts
-│   │   ├── core_smoke.sh         # Smoke tests
-│   │   ├── cleanup_operations.py # Data cleanup
-│   │   └── test_cleanup_system.py # Cleanup tests
-│   ├── templates/                # Code templates
-│   └── testing/                  # Testing framework
+├── 📚 docs/                               # 📖 WHERE DOCUMENTATION RESIDES
+│   ├── README.md                          # This main README
+│   ├── DASHBOARD_README.md                # Dashboard usage guide
+│   ├── ARCHITECTURE.md                    # System architecture docs
+│   ├── PIPELINE_MANAGEMENT_GUIDE.md       # Pipeline development guide
+│   └── [other documentation files]        # Platform documentation
 │
-├── infrastructure/               # ☁️ Infrastructure as Code
-├── dashboard/                    # 🌐 Web Dashboard
-└── docs/                         # 📚 Documentation
+├── 🌐 dashboard/                          # 🎛️ WHERE WEB DASHBOARD RESIDES
+│   ├── app.py                             # Flask application (main core)
+│   ├── templates/                         # HTML templates
+│   │   ├── dashboard.html                 # Main dashboard page
+│   │   ├── pipeline_management.html       # Pipeline management
+│   │   ├── data_browser.html              # Data browsing interface
+│   │   ├── about.html                     # About page
+│   │   └── [other HTML templates]         # UI templates
+│   └── static/                            # CSS/JS/images (if added later)
+│
+├── ⚙️ infrastructure/                     # 🏗️ WHERE INFRA CONFIGS RESIDE
+│   ├── foss-dashboard.service             # Systemd service for dashboard
+│   └── [other infrastructure files]       # Deployment configurations
+│
+├── 🛠️ tools/                              # 🔨 WHERE DEVELOPMENT TOOLS RESIDE
+│   ├── scripts/                           # Additional utility scripts
+│   │   ├── qa_test_suite.py               # Quality assurance tests
+│   │   ├── service_validation_suite.py    # Service validation
+│   │   └── [other development scripts]    # Development utilities
+│   ├── cli/                               # Command-line tools
+│   └── templates/                         # Code generation templates
+│
+├── 📦 docker-compose.yml                  # 🐳 WHERE CONTAINER CONFIGS RESIDE
+├── 📋 requirements.txt                    # 📦 WHERE PYTHON DEPS RESIDE
+├── 📖 README.md                           # 📚 Main documentation (this file)
+└── 🔒 .venv/                              # 🐍 Python virtual environment
 ```
 
-### Key Design Principles
+### 🎯 KEY LOCATIONS SUMMARY
 
-**🎯 Pipeline-Centric Organization:**
-- Each pipeline is self-contained with all dependencies
-- Clear separation between pipeline logic and platform infrastructure
-- Easy to add new pipelines without affecting existing ones
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **🧠 Core Application** | `dashboard/app.py` | Main Flask web application |
+| **🔧 Pipeline Logic** | `pipelines/stavanger_parking/dbt/` | dbt transformations & models |
+| **💾 Pipeline Data** | `pipelines/stavanger_parking/data/` | Raw, staging, and processed data |
+| **🌐 Web Interface** | `dashboard/templates/` | HTML templates for UI |
+| **⚙️ Automation Scripts** | `scripts/` | Service management & automation |
+| **📚 Documentation** | `docs/` | All platform documentation |
+| **🏗️ Infrastructure** | `infrastructure/` | Deployment & service configs |
+| **🛠️ Development Tools** | `tools/` | QA, testing, and utilities |
 
-**🔧 Developer Experience:**
-- Template-based pipeline creation (seconds, not hours)
-- Shared components reduce duplication
-- Clear boundaries for team collaboration
+### 🎯 Current Design Principles
 
-**📈 Scalability:**
-- Supports 50+ pipelines without root-level clutter
-- Independent deployment and scaling per pipeline
-- Consistent structure across all pipelines
+**🏗️ Lakehouse-First Architecture:**
+- Modern data lakehouse combining data lake flexibility with warehouse reliability
+- ACID transactions, schema evolution, and time travel with Apache Iceberg
+- Cost-effective storage with high-performance analytics
 
-## Pipeline Development
+**🔧 Developer-Centric Design:**
+- Clear separation between platform infrastructure and pipeline logic
+- Web-based management interface for ease of use
+- Docker-based deployment for consistency across environments
 
-### Creating New Pipelines
+**📊 Production-Ready Operations:**
+- Health monitoring and automated service management
+- Comprehensive logging and error handling
+- Scalable architecture ready for growth
+
+## 🛠️ Development & Operations
+
+### Platform Management
 ```bash
-# Fast pipeline creation
-./tools/cli/create-pipeline.sh sales_analytics "Sales Analytics Pipeline"
-./tools/cli/create-pipeline.sh customer_insights "Customer Insights Pipeline"
-./tools/cli/create-pipeline.sh inventory_forecast "Inventory Forecasting Pipeline"
+# Start the platform
+docker-compose up -d
+
+# Start dashboard with monitoring
+./scripts/start_dashboard.sh
+
+# Monitor dashboard health
+./scripts/monitor_dashboard.sh
+
+# Stop all services
+docker-compose down
 ```
 
-### Pipeline Structure
-Each pipeline follows a consistent structure:
-```
-pipelines/your_pipeline/
-├── dbt/              # Data transformation models
-├── orchestration/    # Dagster jobs and assets
-├── notebooks/        # Analysis and exploration
-├── scripts/          # Pipeline utilities
-├── config/           # Pipeline configuration
-├── docs/             # Documentation
-└── data/             # Data lifecycle management
-    ├── raw/          # Raw ingested data
-    ├── staging/      # Cleaned and validated data
-    ├── processed/    # Final transformed datasets
-    └── temp/         # Temporary files (auto-cleaned)
-```
+### Current Pipeline Operations
+The **Stavanger Parking Pipeline** demonstrates:
+- **Real-time Data Ingestion**: REST API data collection from municipality
+- **Medallion Architecture**: Bronze (raw) → Silver (clean) → Gold (analytics) layers
+- **Quality Assurance**: Automated dbt tests and data validation
+- **Web Monitoring**: Real-time status, metrics, and data browsing
 
-### Testing & Validation
+### Quality Assurance
 ```bash
-# Run comprehensive QA tests
-python scripts/qa_test_suite.py
+# Run QA test suite
+python tools/scripts/qa_test_suite.py
 
-# Run smoke tests
-./tools/scripts/core_smoke.sh
+# Run service validation
+python tools/scripts/service_validation_suite.py
 
-# Test specific pipeline
-python scripts/test_formatting.py
-```
-
-### Data Cleanup & Maintenance
-```bash
-# Manual cleanup
+# Manual data cleanup
 python tools/scripts/cleanup_operations.py --dry-run
-
-# Automated cleanup (runs daily via cron)
-# Configured in docker-compose.yml
-
-## Documentation
-
-All project documentation is organized in the `docs/` directory:
-
-- **ARCHITECTURE.md** - System architecture and design
-- **PIPELINE_MANAGEMENT_GUIDE.md** - Pipeline development guide
-- **PLATFORM_QUALITY_ASSURANCE.md** - Testing and QA procedures
-- **CLEANUP_SYSTEM_README.md** - Data cleanup system documentation
-- **SECURITY_AUDIT_REPORT.md** - Security assessment results
-- **MIGRATION_GUIDE.md** - Migration from legacy structure
-
-## Scripts & Tools
-
-All utility scripts are organized in the `scripts/` directory:
-
-- **qa_test_suite.py** - Comprehensive QA test suite
-- **service_validation_suite.py** - Service validation tests
-- **test_formatting.py** - Code formatting validation
-- **quickstart.sh** - Platform quickstart script
-- **restructure_repo.sh** - Repository restructuring utility
 ```
 
-## Migration Guide
+## 📚 Documentation Structure
 
-### From Legacy Structure
-This platform has been restructured for better scalability:
+Documentation is organized in the `docs/` directory:
 
-**Old Structure → New Structure:**
-```
-dbt_stavanger_parking/     → pipelines/stavanger_parking/dbt/
-dagster/                   → platform/orchestration/
-scripts/                   → tools/scripts/
-CLEANUP_SYSTEM_README.md   → docs/CLEANUP_SYSTEM_README.md
-migration_plan.md          → docs/migration_plan.md
-```
+- **`README.md`** - Main project overview (this file)
+- **`DASHBOARD_README.md`** - Dashboard usage and management guide
+- **`ARCHITECTURE.md`** - Detailed system architecture
+- **`PIPELINE_MANAGEMENT_GUIDE.md`** - Pipeline development workflows
+- **Other docs** - Feature-specific documentation and guides
 
-**Migration Benefits:**
-- ✅ **Scalable**: Support for 50+ pipelines without root clutter
-- ✅ **Organized**: Clear separation of concerns
-- ✅ **Automated**: Template-based pipeline creation
-- ✅ **Maintainable**: Consistent structure across all pipelines
+## 🚀 Future Roadmap
 
-**Repository Organization:**
-- 📁 **Root Directory**: Clean with only essential files
-- 📁 **docs/**: All documentation (except master README.md)
-- 📁 **scripts/**: All utility scripts and test suites
-- 📁 **pipelines/**: Pipeline projects with self-contained structure
-- 📁 **platform/**: Platform infrastructure and services
-- 📁 **tools/**: Development tools and CLI utilities
+### Phase 2: Analytics Engine Integration
+- **Trino Integration**: Distributed SQL queries across data sources
+- **Advanced Analytics**: Complex analytical queries and reporting
+- **Multi-Source Queries**: Query across different data formats
 
-**Backward Compatibility:**
-- All existing functionality preserved
-- API endpoints remain the same
-- Docker services continue to work
-- No breaking changes for users
+### Phase 3: Object Storage Layer
+- **MinIO Integration**: S3-compatible object storage for data lake
+- **Storage Optimization**: Cost-effective, scalable data storage
+- **Data Lifecycle**: Automated data tiering and archival
 
-## Development
+### Phase 4: Multi-Pipeline Orchestration
+- **Pipeline Templates**: Automated pipeline creation from templates
+- **Orchestration Engine**: Advanced workflow management
+- **Monitoring Dashboard**: Comprehensive pipeline monitoring
 
-This platform is designed to be:
-- **FOSS**: All components are open-source
-- **Modern**: Uses current best practices and tools
-- **Lean**: Minimal resource footprint
-- **High-performing**: Optimized for speed and efficiency
+### Phase 5: Enterprise Features
+- **Security**: Authentication, authorization, and audit trails
+- **Governance**: Data lineage, quality monitoring, and compliance
+- **Scalability**: Support for 50+ concurrent pipelines
 
-## Contributing
+## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+### Getting Started
+1. **Fork** the repository
+2. **Clone** your fork: `git clone https://github.com/your-username/foss-dataplatform.git`
+3. **Create** a feature branch: `git checkout -b feature/your-feature`
+4. **Make** your changes
+5. **Test** thoroughly: `docker-compose up -d && ./scripts/start_dashboard.sh`
+6. **Submit** a pull request
 
-## License
+### Development Guidelines
+- **Code Quality**: Run QA tests before submitting
+- **Documentation**: Update docs for any new features
+- **Testing**: Ensure all existing functionality works
+- **Docker**: Test changes with Docker Compose
 
-MIT License - see LICENSE file for details
+### Areas for Contribution
+- **New Pipeline Templates**: Create templates for common use cases
+- **Enhanced Monitoring**: Improve dashboard features and metrics
+- **Documentation**: Improve guides and examples
+- **Testing**: Add more comprehensive test coverage
+- **Performance**: Optimize query performance and resource usage
+
+## 📄 License
+
+**MIT License** - This project is open-source and free to use, modify, and distribute.
+
+See LICENSE file for full license details.
+
+---
+
+## 🎯 Quick Reference
+
+| What | Where | Why |
+|------|-------|-----|
+| **Start Platform** | `docker-compose up -d` | Launch all services |
+| **View Dashboard** | `http://localhost:5000` | Main management interface |
+| **Pipeline Code** | `pipelines/stavanger_parking/dbt/` | dbt transformations |
+| **Pipeline Data** | `pipelines/stavanger_parking/data/` | Raw, staging, processed data |
+| **Core App** | `dashboard/app.py` | Flask web application |
+| **Scripts** | `scripts/` | Automation and management |
+| **Docs** | `docs/` | All documentation |
+
+**Ready to explore? Start with:** `docker-compose up -d && ./scripts/start_dashboard.sh`
