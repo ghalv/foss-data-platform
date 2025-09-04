@@ -17,13 +17,11 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
-# Ensure required schemas exist (Iceberg)
+# Ensure required schemas exist for Medallion Architecture (Iceberg)
 on-run-start:
-  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics"
-  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_staging"
-  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_intermediate"
-  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_marts_core"
-  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_marts_marketing"
+  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_staging"    # Bronze & Silver Layer
+  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics"            # Gold Layer (Business Layer)
+  - "CREATE SCHEMA IF NOT EXISTS iceberg.analytics_audit"      # Audit & Quality Layer
 
 # Delta load specific configurations
 vars:
@@ -31,41 +29,68 @@ vars:
   load_type: "delta_load"
   data_source: "stavanger_api"
 
-# Configuring data models
+# Medallion Architecture Model Configuration
 models:
   stavanger_parking:
-    # Config indicated by + and applies to all files under models/example/
+
+    # 🥉 BRONZE LAYER - Raw Data Landing Zone
+    bronze:
+      +materialized: incremental
+      +incremental_strategy: merge
+      +schema: analytics_staging
+      +tags: ['bronze', 'landing', 'raw', 'iceberg', 'incremental']
+      landing:
+        +partition_by: {"field": "recorded_date", "data_type": "date"}
+      audit:
+        +materialized: incremental
+        +incremental_strategy: append
+        +tags: ['bronze', 'audit', 'data_quality', 'monitoring']
+
+    # 🥈 SILVER LAYER - Cleaned & Enriched Data
+    silver:
+      +schema: analytics_staging
+      +tags: ['silver', 'clean', 'enriched', 'validated']
+      entities:
+        +materialized: incremental
+        +incremental_strategy: merge
+        +tags: ['silver', 'entities', 'dimension', 'master_data']
+      facts:
+        +materialized: incremental
+        +incremental_strategy: merge
+        +partition_by: {"field": "recorded_date", "data_type": "date"}
+        +tags: ['silver', 'facts', 'measures', 'incremental']
+      conformed:
+        +materialized: table
+        +tags: ['silver', 'conformed', 'dimension', 'shared']
+
+    # 🥇 GOLD LAYER - Business Ready Analytics
+    gold:
+      +schema: analytics
+      +tags: ['gold', 'business', 'analytics', 'reporting']
+      reports:
+        +materialized: table
+        +tags: ['gold', 'reports', 'business_intelligence', 'kpi']
+      dashboards:
+        +materialized: view
+        +tags: ['gold', 'dashboards', 'real_time', 'metrics']
+      analytics:
+        +materialized: table
+        +tags: ['gold', 'analytics', 'predictive', 'ml_features']
+
+    # Legacy configurations (to be deprecated)
     staging:
       +materialized: incremental
       +incremental_strategy: merge
       +schema: analytics_staging
-      +tags: ['staging', 'delta_load']
+      +tags: ['legacy', 'staging', 'deprecated']
     intermediate:
       +materialized: table
-      +schema: analytics_intermediate
+      +schema: analytics_staging
+      +tags: ['legacy', 'intermediate', 'deprecated']
     marts:
       +materialized: table
       +schema: analytics
-    core:
-      +materialized: table
-      +schema: analytics
-    marketing:
-      +materialized: table
-      +schema: analytics
-
-    # Delta load specific models
-    delta_load:
-      +materialized: incremental
-      +incremental_strategy: merge
-      +schema: analytics_staging
-      +tags: ['delta_load', 'iceberg', 'incremental']
-
-    # Metadata models
-    metadata:
-      +materialized: incremental
-      +incremental_strategy: append
-      +schema: analytics
-      +tags: ['metadata', 'audit']
+      +tags: ['legacy', 'marts', 'deprecated']
 
 # Seeds configuration
 seeds:

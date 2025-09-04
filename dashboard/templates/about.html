@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - FOSS Data Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4rem 0;
+        }
+
+        .component-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: none;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .component-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        .component-logo {
+            height: 80px;
+            width: auto;
+            max-width: 200px;
+            object-fit: contain;
+            filter: brightness(0.8);
+            transition: filter 0.3s ease;
+        }
+
+        .component-card:hover .component-logo {
+            filter: brightness(1);
+        }
+
+        .capability-badge {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            font-size: 0.8rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+        }
+
+        .strength-highlight {
+            background: linear-gradient(45deg, #007bff, #6610f2);
+            color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            margin: 2rem 0;
+        }
+
+        .limitation-box {
+            background: linear-gradient(45deg, #fd7e14, #e83e8c);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+        }
+
+        .flow-diagram {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 15px;
+            margin: 2rem 0;
+        }
+
+        .data-flow-arrow {
+            color: #007bff;
+            font-size: 2rem;
+            margin: 0 1rem;
+        }
+
+        .use-case-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .use-case-card:hover {
+            border-color: #007bff;
+            box-shadow: 0 5px 15px rgba(0,123,255,0.1);
+        }
+
+        .comparison-table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .comparison-table th {
+            background: linear-gradient(45deg, #007bff, #6610f2);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .comparison-table td {
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .checkmark {
+            color: #28a745;
+            font-size: 1.2rem;
+        }
+
+        .crossmark {
+            color: #dc3545;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-database"></i> FOSS Data Platform
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Dashboard</a>
+                <a class="nav-link" href="/pipeline-management"><i class="fas fa-cogs"></i> Pipelines</a>
+                <a class="nav-link" href="/data-browser"><i class="fas fa-search"></i> Data</a>
+                <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+                <a class="nav-link active" href="/about"><i class="fas fa-info-circle"></i> About</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <h1 class="display-4 fw-bold mb-4">
+                        <i class="fas fa-cogs"></i> What's Under the Hood?
+                    </h1>
+                    <p class="lead mb-4">
+                        Discover the powerful open-source architecture that makes modern data engineering
+                        accessible, scalable, and cost-effective.
+                    </p>
+                    <div class="d-flex gap-3">
+                        <span class="badge bg-light text-primary fs-6 px-3 py-2">
+                            <i class="fas fa-code-branch"></i> 100% Open Source
+                        </span>
+                        <span class="badge bg-light text-success fs-6 px-3 py-2">
+                            <i class="fas fa-euro-sign"></i> Cost Effective
+                        </span>
+                        <span class="badge bg-light text-warning fs-6 px-3 py-2">
+                            <i class="fas fa-rocket"></i> Enterprise Ready
+                        </span>
+                    </div>
+                </div>
+                <div class="col-lg-4 text-center">
+                    <img src="https://raw.githubusercontent.com/apache/iceberg/main/docs/images/Apache-Iceberg-Logo.png"
+                         alt="Iceberg Logo" class="img-fluid" style="max-height: 200px; filter: brightness(0) invert(1);">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="container my-5">
+
+        <!-- Architecture Overview -->
+        <section class="mb-5">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold text-primary">
+                    <i class="fas fa-sitemap"></i> Platform Architecture
+                </h2>
+                <p class="lead text-muted">
+                    A carefully orchestrated stack of battle-tested open-source technologies
+                </p>
+            </div>
+
+            <div class="flow-diagram">
+                <h4 class="text-center mb-4">
+                    <i class="fas fa-route"></i> Data Flow Architecture
+                </h4>
+                <div class="row align-items-center text-center">
+                    <div class="col-md-2">
+                        <div class="p-3 bg-white rounded shadow-sm">
+                            <i class="fas fa-cloud-upload-alt fa-2x text-primary mb-2"></i>
+                            <div class="small text-muted">Data Sources</div>
+                            <div class="small fw-bold">APIs, Files, Streams</div>
+                        </div>
+                    </div>
+                    <div class="data-flow-arrow">→</div>
+                    <div class="col-md-2">
+                        <div class="p-3 bg-white rounded shadow-sm">
+                            <i class="fas fa-cogs fa-2x text-success mb-2"></i>
+                            <div class="small text-muted">Ingestion</div>
+                            <div class="small fw-bold">dbt + Python</div>
+                        </div>
+                    </div>
+                    <div class="data-flow-arrow">→</div>
+                    <div class="col-md-2">
+                        <div class="p-3 bg-white rounded shadow-sm">
+                            <i class="fas fa-database fa-2x text-info mb-2"></i>
+                            <div class="small text-muted">Storage</div>
+                            <div class="small fw-bold">Iceberg Tables</div>
+                        </div>
+                    </div>
+                    <div class="data-flow-arrow">→</div>
+                    <div class="col-md-2">
+                        <div class="p-3 bg-white rounded shadow-sm">
+                            <i class="fas fa-search fa-2x text-warning mb-2"></i>
+                            <div class="small text-muted">Query</div>
+                            <div class="small fw-bold">Trino Engine</div>
+                        </div>
+                    </div>
+                    <div class="data-flow-arrow">→</div>
+                    <div class="col-md-2">
+                        <div class="p-3 bg-white rounded shadow-sm">
+                            <i class="fas fa-chart-line fa-2x text-danger mb-2"></i>
+                            <div class="small text-muted">Analytics</div>
+                            <div class="small fw-bold">BI Tools</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Core Components -->
+        <section class="mb-5">
+            <h2 class="text-center mb-5 fw-bold text-primary">
+                <i class="fas fa-puzzle-piece"></i> Core Components
+            </h2>
+
+            <div class="row">
+                <!-- Iceberg -->
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="component-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <img src="https://raw.githubusercontent.com/apache/iceberg/main/docs/images/Apache-Iceberg-Logo.png"
+                                 alt="Apache Iceberg" class="component-logo mb-3">
+                            <h5 class="card-title fw-bold">Apache Iceberg</h5>
+                            <p class="card-text text-muted mb-3">
+                                <strong>Table Format for the Lakehouse</strong>
+                            </p>
+                            <p class="card-text small">
+                                Provides ACID transactions, schema evolution, time travel, and partitioning
+                                for data lakes. Enables reliable, high-performance analytics on object storage.
+                            </p>
+                            <div class="mt-3">
+                                <span class="capability-badge me-1 mb-1">ACID Transactions</span>
+                                <span class="capability-badge me-1 mb-1">Time Travel</span>
+                                <span class="capability-badge me-1 mb-1">Schema Evolution</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trino -->
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="component-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <img src="https://raw.githubusercontent.com/trinodb/trino/main/docs/src/main/resources/images/trino-logo.png"
+                                 alt="Trino" class="component-logo mb-3">
+                            <h5 class="card-title fw-bold">Trino</h5>
+                            <p class="card-text text-muted mb-3">
+                                <strong>Distributed SQL Query Engine</strong>
+                            </p>
+                            <p class="card-text small">
+                                Fast, distributed SQL engine for querying data lakes and databases.
+                                Enables unified analytics across multiple data sources with standard SQL.
+                            </p>
+                            <div class="mt-3">
+                                <span class="capability-badge me-1 mb-1">Distributed SQL</span>
+                                <span class="capability-badge me-1 mb-1">Multi-Source</span>
+                                <span class="capability-badge me-1 mb-1">High Performance</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- dbt -->
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="component-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <img src="https://raw.githubusercontent.com/dbt-labs/dbt-core/main/docs/images/dbt-logo.png"
+                                 alt="dbt" class="component-logo mb-3">
+                            <h5 class="card-title fw-bold">dbt</h5>
+                            <p class="card-text text-muted mb-3">
+                                <strong>Data Transformation Tool</strong>
+                            </p>
+                            <p class="card-text small">
+                                Transforms raw data into analytics-ready tables using SQL.
+                                Enables data engineers to build reliable, tested data pipelines.
+                            </p>
+                            <div class="mt-3">
+                                <span class="capability-badge me-1 mb-1">SQL Transforms</span>
+                                <span class="capability-badge me-1 mb-1">Testing</span>
+                                <span class="capability-badge me-1 mb-1">Documentation</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MinIO -->
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="component-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <img src="https://raw.githubusercontent.com/minio/minio/master/docs/images/logo.png"
+                                 alt="MinIO" class="component-logo mb-3">
+                            <h5 class="card-title fw-bold">MinIO</h5>
+                            <p class="card-text text-muted mb-3">
+                                <strong>S3-Compatible Object Storage</strong>
+                            </p>
+                            <p class="card-text small">
+                                High-performance object storage with S3 API compatibility.
+                                Provides scalable, cost-effective storage for data lakes.
+                            </p>
+                            <div class="mt-3">
+                                <span class="capability-badge me-1 mb-1">S3 Compatible</span>
+                                <span class="capability-badge me-1 mb-1">High Performance</span>
+                                <span class="capability-badge me-1 mb-1">Scalable</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hive Metastore -->
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="component-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <img src="https://raw.githubusercontent.com/apache/hive/master/site/images/hive_logo_medium.png"
+                                 alt="Apache Hive" class="component-logo mb-3">
+                            <h5 class="card-title fw-bold">Hive Metastore</h5>
+                            <p class="card-text text-muted mb-3">
+                                <strong>Metadata Catalog Service</strong>
+                            </p>
+                            <p class="card-text small">
+                                Centralized metadata repository for Iceberg tables.
+                                Provides table discovery, schema management, and access control.
+                            </p>
+                            <div class="mt-3">
+                                <span class="capability-badge me-1 mb-1">Metadata Catalog</span>
+                                <span class="capability-badge me-1 mb-1">Schema Management</span>
+                                <span class="capability-badge me-1 mb-1">Discovery</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PostgreSQL -->
+                <div class="col-lg-6 col-xl-4 mb-4">
+                    <div class="component-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <img src="https://raw.githubusercontent.com/postgres/postgres/master/doc/src/sgml/images/logo.png"
+                                 alt="PostgreSQL" class="component-logo mb-3">
+                            <h5 class="card-title fw-bold">PostgreSQL</h5>
+                            <p class="card-text text-muted mb-3">
+                                <strong>Metadata Database</strong>
+                            </p>
+                            <p class="card-text small">
+                                Reliable database backend for Hive Metastore.
+                                Ensures metadata persistence and transactional consistency.
+                            </p>
+                            <div class="mt-3">
+                                <span class="capability-badge me-1 mb-1">ACID Compliant</span>
+                                <span class="capability-badge me-1 mb-1">Reliable</span>
+                                <span class="capability-badge me-1 mb-1">Transactional</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Capabilities Section -->
+        <section class="mb-5">
+            <div class="strength-highlight">
+                <h3 class="text-center mb-4">
+                    <i class="fas fa-superpowers"></i> Platform Capabilities
+                </h3>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-3 fa-2x"></i>
+                            <div>
+                                <strong>Delta Loads & Incremental Processing</strong>
+                                <br><small class="text-light">Only process changed data for efficiency</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-3 fa-2x"></i>
+                            <div>
+                                <strong>Time Travel & Versioning</strong>
+                                <br><small class="text-light">Query historical data states</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-3 fa-2x"></i>
+                            <div>
+                                <strong>Schema Evolution</strong>
+                                <br><small class="text-light">Modify schemas without breaking queries</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-3 fa-2x"></i>
+                            <div>
+                                <strong>ACID Transactions</strong>
+                                <br><small class="text-light">Reliable data consistency</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-3 fa-2x"></i>
+                            <div>
+                                <strong>Unified SQL Analytics</strong>
+                                <br><small class="text-light">Query multiple sources with SQL</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-3 fa-2x"></i>
+                            <div>
+                                <strong>Cost-Effective Storage</strong>
+                                <br><small class="text-light">Object storage with query optimization</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Use Cases -->
+        <section class="mb-5">
+            <h2 class="text-center mb-5 fw-bold text-primary">
+                <i class="fas fa-lightbulb"></i> Perfect For
+            </h2>
+
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="use-case-card">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-building fa-3x text-primary mb-3"></i>
+                            <h5 class="fw-bold">Small to Medium Enterprises</h5>
+                        </div>
+                        <ul class="list-unstyled">
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Cost-effective alternative to expensive cloud platforms</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Full control over data and infrastructure</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Scalable from prototype to production</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> No vendor lock-in or egress fees</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 mb-4">
+                    <div class="use-case-card">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-graduation-cap fa-3x text-success mb-3"></i>
+                            <h5 class="fw-bold">Data Engineering Teams</h5>
+                        </div>
+                        <ul class="list-unstyled">
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Learn modern data lake patterns</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Experiment with cutting-edge technologies</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Build production-ready data platforms</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Hands-on experience with open-source tools</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 mb-4">
+                    <div class="use-case-card">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-flask fa-3x text-warning mb-3"></i>
+                            <h5 class="fw-bold">Data Science & Analytics</h5>
+                        </div>
+                        <ul class="list-unstyled">
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Unified SQL access to all data sources</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Time travel for historical analysis</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Schema evolution for iterative development</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> High-performance analytics on object storage</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 mb-4">
+                    <div class="use-case-card">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-industry fa-3x text-info mb-3"></i>
+                            <h5 class="fw-bold">Regulated Industries</h5>
+                        </div>
+                        <ul class="list-unstyled">
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Full data sovereignty and control</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> On-premises deployment options</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Audit trails and data lineage</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i> Compliance with data residency requirements</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Comparison Table -->
+        <section class="mb-5">
+            <h2 class="text-center mb-5 fw-bold text-primary">
+                <i class="fas fa-balance-scale"></i> How We Compare
+            </h2>
+
+            <div class="comparison-table">
+                <table class="table table-borderless mb-0">
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>FOSS Data Platform</th>
+                            <th>Major Cloud Providers</th>
+                            <th>Traditional Data Warehouses</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="fw-bold">Cost</td>
+                            <td><i class="checkmark fas fa-check"></i> Low (mostly compute)</td>
+                            <td><i class="crossmark fas fa-times"></i> High (storage + compute + egress)</td>
+                            <td><i class="crossmark fas fa-times"></i> Very High (licenses + hardware)</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Data Sovereignty</td>
+                            <td><i class="checkmark fas fa-check"></i> Full control</td>
+                            <td><i class="crossmark fas fa-times"></i> Limited (cloud provider)</td>
+                            <td><i class="checkmark fas fa-check"></i> Full control</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Scalability</td>
+                            <td><i class="checkmark fas fa-check"></i> Elastic (object storage)</td>
+                            <td><i class="checkmark fas fa-check"></i> Elastic</td>
+                            <td><i class="crossmark fas fa-times"></i> Limited by hardware</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Time Travel</td>
+                            <td><i class="checkmark fas fa-check"></i> Native (Iceberg)</td>
+                            <td><i class="crossmark fas fa-times"></i> Limited or expensive</td>
+                            <td><i class="crossmark fas fa-times"></i> Not supported</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Schema Evolution</td>
+                            <td><i class="checkmark fas fa-check"></i> Automatic (Iceberg)</td>
+                            <td><i class="crossmark fas fa-times"></i> Manual or expensive</td>
+                            <td><i class="crossmark fas fa-times"></i> Complex migrations</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Open Standards</td>
+                            <td><i class="checkmark fas fa-check"></i> 100% open source</td>
+                            <td><i class="crossmark fas fa-times"></i> Proprietary formats</td>
+                            <td><i class="crossmark fas fa-times"></i> Vendor-specific</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Setup Complexity</td>
+                            <td><i class="crossmark fas fa-times"></i> Moderate (Docker-based)</td>
+                            <td><i class="checkmark fas fa-check"></i> Easy (managed services)</td>
+                            <td><i class="crossmark fas fa-times"></i> High (infrastructure setup)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Strengths & Limitations -->
+        <section class="mb-5">
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="strength-highlight">
+                        <h4 class="text-center mb-4">
+                            <i class="fas fa-star"></i> Key Strengths
+                        </h4>
+                        <ul class="list-unstyled">
+                            <li class="mb-3">
+                                <strong class="text-warning">Cost-Effective:</strong>
+                                <br>Significantly lower costs than cloud data platforms or traditional warehouses
+                            </li>
+                            <li class="mb-3">
+                                <strong class="text-warning">Full Control:</strong>
+                                <br>Complete data sovereignty with no vendor lock-in or egress fees
+                            </li>
+                            <li class="mb-3">
+                                <strong class="text-warning">Modern Architecture:</strong>
+                                <br>Lakehouse patterns with ACID transactions and time travel capabilities
+                            </li>
+                            <li class="mb-3">
+                                <strong class="text-warning">Open Source:</strong>
+                                <br>100% open-source stack with active communities and enterprise support
+                            </li>
+                            <li class="mb-3">
+                                <strong class="text-warning">Scalable:</strong>
+                                <br>Elastic scaling with object storage as the foundation
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 mb-4">
+                    <div class="limitation-box">
+                        <h4 class="text-center mb-4">
+                            <i class="fas fa-exclamation-triangle"></i> Current Limitations
+                        </h4>
+                        <ul class="list-unstyled">
+                            <li class="mb-3">
+                                <strong>Setup Complexity:</strong>
+                                <br>Requires Docker and infrastructure knowledge to deploy
+                            </li>
+                            <li class="mb-3">
+                                <strong>Resource Requirements:</strong>
+                                <br>Needs sufficient RAM/CPU for all services (minimum 16GB RAM recommended)
+                            </li>
+                            <li class="mb-3">
+                                <strong>Learning Curve:</strong>
+                                <br>Multiple technologies to learn (dbt, Trino, Iceberg, etc.)
+                            </li>
+                            <li class="mb-3">
+                                <strong>Monitoring:</strong>
+                                <br>Limited built-in monitoring compared to managed cloud services
+                            </li>
+                            <li class="mb-3">
+                                <strong>Support:</strong>
+                                <br>Community support vs. enterprise SLAs from cloud providers
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Why Choose Us -->
+        <section class="mb-5">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold text-primary">
+                    <i class="fas fa-question-circle"></i> Why Choose FOSS Data Platform?
+                </h2>
+                <p class="lead text-muted">
+                    The sweet spot between cost, control, and capability
+                </p>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <div class="text-center">
+                        <i class="fas fa-euro-sign fa-4x text-success mb-3"></i>
+                        <h4 class="fw-bold">Save Money</h4>
+                        <p>
+                            Reduce data platform costs by 60-80% compared to major cloud providers.
+                            Pay only for compute, not for storage or data movement.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 mb-4">
+                    <div class="text-center">
+                        <i class="fas fa-shield-alt fa-4x text-primary mb-3"></i>
+                        <h4 class="fw-bold">Own Your Data</h4>
+                        <p>
+                            Full data sovereignty with no vendor lock-in. Deploy on-premises or
+                            in your preferred cloud environment.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 mb-4">
+                    <div class="text-center">
+                        <i class="fas fa-graduation-cap fa-4x text-info mb-3"></i>
+                        <h4 class="fw-bold">Learn & Grow</h4>
+                        <p>
+                            Master modern data engineering skills with hands-on experience
+                            using industry-standard open-source tools.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <div class="alert alert-info" role="alert">
+                    <h5 class="alert-heading">
+                        <i class="fas fa-lightbulb"></i> Perfect For:
+                    </h5>
+                    <p class="mb-0">
+                        <strong>Startups, SMEs, educational institutions, and regulated industries</strong>
+                        that need cost-effective, scalable data platforms without sacrificing control or capabilities.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-2">
+                <i class="fas fa-code"></i> Built with ❤️ using open-source technologies
+            </p>
+            <p class="mb-0 small text-muted">
+                FOSS Data Platform - Empowering data-driven organizations with modern, cost-effective tools
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

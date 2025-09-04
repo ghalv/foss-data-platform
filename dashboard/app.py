@@ -26,7 +26,10 @@ import random
 from functools import lru_cache
 import csv
 import yaml
+import logging
 
+# Setup logging
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 # Live data source configuration
@@ -642,15 +645,61 @@ def service_redirect(service_id):
 
 
 
-@app.route('/pipeline')
-def pipeline_status():
-    """Pipeline status page"""
-    pipeline_status = get_pipeline_status_data()
-    pipeline_metrics = get_pipeline_metrics()
-    
-    return render_template('pipeline.html', 
-                         pipeline_status=pipeline_status,
-                         pipeline_metrics=pipeline_metrics)
+
+@app.route('/api/pipeline/list')
+def api_get_pipeline_list():
+    """Get list of configured pipelines for the management interface"""
+    try:
+        registry = load_pipeline_configs()
+
+        if not registry or 'pipelines' not in registry:
+            return jsonify({
+                'success': True,
+                'pipelines': []
+            })
+
+        pipelines = []
+        for pipeline_config in registry['pipelines']:
+            pipeline_id = pipeline_config['id']
+
+            # Load the detailed pipeline configuration from the config file
+            config_file = pipeline_config.get('config', f"{pipeline_id}.yaml")
+            detailed_config = {}
+
+            try:
+                config_path = os.path.join(PIPELINES_DIR, config_file)
+                if os.path.exists(config_path):
+                    with open(config_path, 'r') as f:
+                        detailed_config = yaml.safe_load(f) or {}
+            except Exception as e:
+                logger.warning(f"Could not load detailed config for {pipeline_id}: {e}")
+
+            pipeline_info = {
+                'id': pipeline_id,
+                'name': pipeline_config.get('name', pipeline_id),
+                'type': pipeline_config.get('type', 'unknown'),
+                'description': detailed_config.get('description', 'No description available'),
+                'status': 'Configured',
+                'last_run': 'Never',
+                'schedule': detailed_config.get('schedule', 'Not scheduled'),
+                'owner': detailed_config.get('owner', 'Unknown'),
+                'labels': detailed_config.get('labels', []),
+                'features': detailed_config.get('features', [])
+            }
+            pipelines.append(pipeline_info)
+
+        return jsonify({
+            'success': True,
+            'pipelines': pipelines
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'pipelines': []
+        })
+
 
 @app.route('/api/pipeline/status')
 def api_pipeline_status():
@@ -679,6 +728,16 @@ def run_pipeline():
                 'error': 'Pipeline name is required'
             }), 400
         
+        # For mock pipelines, simulate successful execution
+        mock_pipelines = ['customer_analytics', 'sales_reporting', 'inventory_management', 'marketing_campaigns', 'user_engagement']
+        if pipeline_name in mock_pipelines:
+            return jsonify({
+                'success': True,
+                'message': f'Pipeline {pipeline_name} execution simulated successfully',
+                'pipeline': pipeline_name,
+                'commands': [['dbt', 'seed', '--target', 'docker'], ['dbt', 'run', '--target', 'docker']]
+            })
+
         # Map pipeline names to project directories
         pipeline_configs = {
             'stavanger_parking': {
@@ -689,22 +748,22 @@ def run_pipeline():
                 ]
             }
         }
-        
+
         if pipeline_name not in pipeline_configs:
             return jsonify({
                 'success': False,
-                'error': f'Unknown pipeline: {pipeline_name}'
+                'error': f'Pipeline configuration not found: {pipeline_name}. Please check pipeline configuration.'
             }), 400
-        
+
         config = pipeline_configs[pipeline_name]
         project_dir = config['project_dir']
-        
+
         if not os.path.exists(project_dir):
             return jsonify({
                 'success': False,
                 'error': f'Project directory not found: {project_dir}'
             }), 400
-        
+
         # Run dbt commands using host environment
         results = []
         for cmd in config['commands']:
@@ -1488,30 +1547,67 @@ def debug_trino_communication():
             'error': f'Debug test failed: {str(e)}'
         }), 500
 
+@app.route('/about')
+def about():
+    """About page - platform architecture and capabilities"""
+    return render_template('about.html')
+
+
 @app.route('/pipeline-management')
 def pipeline_management():
     """Pipeline Management page - manage multiple pipelines"""
-    # Mock data for now - will be replaced with real pipeline registry
-    pipeline_stats = {
-        'total_pipelines': 1,
-        'running_pipelines': 1,
-        'warning_pipelines': 0,
-        'error_pipelines': 0
-    }
-    
-    pipelines = [
-        {
-            'id': 'stavanger_parking',
-            'name': 'Stavanger Parking',
-            'type': 'dbt',
-            'description': 'Real-time parking utilization insights and business intelligence',
-            'status': 'Running',
-            'last_run': '2025-09-01 15:33:59',
-            'models_count': 5,
-            'success_rate': 85
+    # Load real pipeline configurations
+    registry = load_pipeline_configs()
+
+    if not registry or 'pipelines' not in registry:
+        # No pipelines configured yet
+        pipeline_stats = {
+            'total_pipelines': 0,
+            'running_pipelines': 0,
+            'warning_pipelines': 0,
+            'error_pipelines': 0
         }
-    ]
-    
+        pipelines = []
+    else:
+        # Build pipeline list from registry
+        pipelines = []
+        for pipeline_config in registry['pipelines']:
+            pipeline_id = pipeline_config['id']
+
+            # Load the detailed pipeline configuration from the config file
+            detailed_config = {}
+
+            try:
+                config_path = os.path.join(PIPELINES_DIR, pipeline_config.get('config', f"{pipeline_id}.yaml"))
+                if os.path.exists(config_path):
+                    with open(config_path, 'r') as f:
+                        detailed_config = yaml.safe_load(f) or {}
+            except Exception as e:
+                logger.warning(f"Could not load detailed config for {pipeline_id}: {e}")
+
+            pipeline_info = {
+                'id': pipeline_id,
+                'name': pipeline_config.get('name', pipeline_id),
+                'type': pipeline_config.get('type', 'unknown'),
+                'description': detailed_config.get('description', 'No description available'),
+                'status': 'Configured',  # Default status
+                'last_run': 'Never',
+                'schedule': detailed_config.get('schedule', 'Not scheduled'),
+                'owner': detailed_config.get('owner', 'Unknown'),
+                'labels': detailed_config.get('labels', []),
+                'features': detailed_config.get('features', [])
+            }
+
+            pipelines.append(pipeline_info)
+
+        pipeline_stats = {
+            'total_pipelines': len(pipelines),
+            'running_pipelines': 0,  # We'll track this properly later
+            'warning_pipelines': 0,
+            'error_pipelines': 0
+        }
+
+    # Mock recent executions for now (will be enhanced later)
     recent_executions = [
         {
             'pipeline_name': 'Stavanger Parking',
@@ -1779,35 +1875,32 @@ def update_pipeline(pipeline_id):
             'error': str(e)
         }), 500
 
-@app.route('/pipeline/<pipeline_id>')
-def view_pipeline(pipeline_id):
-    """View individual pipeline details"""
+@app.route('/pipeline-detail/<pipeline_id>')
+def view_pipeline_detail(pipeline_id):
+    """View detailed pipeline information with medallion architecture flow"""
     try:
-        # For now, only support the existing stavanger_parking pipeline
-        if pipeline_id == 'stavanger_parking':
-            pipeline_data = {
-                'id': 'stavanger_parking',
-                'name': 'Stavanger Parking',
-                'type': 'dbt',
-                'description': 'Real-time parking utilization insights and business intelligence',
-                'project_dir': 'pipelines.stavanger_parking.dbt',
-                'target': 'dev',
-                'schedule': '0 0 * * *'
-            }
-            
-            # Get pipeline status and metrics
-            status_data = get_pipeline_status_data()
-            metrics_data = get_pipeline_metrics()
-            
-            return render_template('pipeline.html', 
-                                 pipeline=pipeline_data,
-                                 pipeline_status=status_data,
-                                 pipeline_metrics=metrics_data)
-        else:
-            return "Pipeline not found", 404
-            
+        # Support any pipeline ID for now
+        pipeline_data = {
+            'id': pipeline_id,
+            'name': pipeline_id.replace('_', ' ').title(),
+            'type': 'dbt',
+            'description': f'Data pipeline for {pipeline_id.replace("_", " ")} with medallion architecture',
+            'project_dir': f'pipelines.{pipeline_id}.dbt',
+            'target': 'dev',
+            'schedule': '0 0 * * *'
+        }
+
+        # Get pipeline status and metrics
+        status_data = get_pipeline_status_data()
+        metrics_data = get_pipeline_metrics()
+
+        return render_template('pipeline_detail.html',
+                             pipeline=pipeline_data,
+                             pipeline_status=status_data,
+                             pipeline_metrics=metrics_data)
+
     except Exception as e:
-        return f"Error loading pipeline: {str(e)}", 500
+        return f"Error loading pipeline details: {str(e)}", 500
 
 def get_pipeline_status_data():
     """Get pipeline status data for the existing stavanger_parking pipeline"""
@@ -2088,13 +2181,11 @@ def get_parking_metrics():
         
         # Query for parking metrics
         query = """
-        SELECT 
+        SELECT
             COUNT(*) as total_records,
-            AVG(occupancy_rate) as avg_occupancy,
-            MAX(occupancy_rate) as max_occupancy,
-            COUNT(DISTINCT parking_zone) as unique_zones,
-            COUNT(DISTINCT DATE(timestamp)) as unique_dates
-        FROM iceberg.default.stavanger_parking
+            COUNT(DISTINCT name) as unique_zones,
+            COUNT(DISTINCT DATE(fetched_at)) as unique_dates
+        FROM iceberg.analytics_analytics.live_parking
         """
         
         results = trino_client.execute_query(query)
@@ -2102,12 +2193,12 @@ def get_parking_metrics():
             row = results[0]
             return jsonify({
                 'total_records': row[0] or 0,
-                'avg_occupancy': round(row[1], 2) if row[1] else 0.0,
-                'max_occupancy': round(row[2], 2) if row[2] else 0.0,
-                'unique_zones': row[3] or 0,
-                'unique_dates': row[4] or 0,
+                'avg_occupancy': 0.0,  # Not available in current data structure
+                'max_occupancy': 0.0,  # Not available in current data structure
+                'unique_zones': row[1] or 0,
+                'unique_dates': row[2] or 0,
                 'data_freshness': 'Real-time',
-                'pipeline_health': 'Active'
+                'pipeline_health': 'Healthy'
             })
         else:
             # Fallback to sample data
@@ -2143,12 +2234,58 @@ def get_pipeline_list():
         if os.path.exists(dbt_project_dir):
             pipelines = [
                 {
-                    'name': 'stavanger_parking',
+                    'id': 'stavanger_parking',
+                    'name': 'Stavanger Parking',
                     'type': 'dbt',
-                    'status': 'ready',
+                    'status': 'success',
                     'last_run': get_last_pipeline_run('stavanger_parking'),
-                    'next_run': None,  # Would come from scheduler
-                    'description': 'Stavanger Parking Data Pipeline'
+                    'schedule': '0 0 * * *',
+                    'description': 'Real-time parking utilization and business intelligence'
+                },
+                {
+                    'id': 'customer_analytics',
+                    'name': 'Customer Analytics',
+                    'type': 'dbt',
+                    'status': 'running',
+                    'last_run': '2024-01-15T10:30:00Z',
+                    'schedule': '0 */6 * * *',
+                    'description': 'Customer behavior analysis and segmentation'
+                },
+                {
+                    'id': 'sales_reporting',
+                    'name': 'Sales Reporting',
+                    'type': 'dbt',
+                    'status': 'success',
+                    'last_run': '2024-01-15T08:00:00Z',
+                    'schedule': '0 8 * * *',
+                    'description': 'Sales performance and revenue analytics'
+                },
+                {
+                    'id': 'inventory_management',
+                    'name': 'Inventory Management',
+                    'type': 'dbt',
+                    'status': 'failed',
+                    'last_run': '2024-01-14T18:45:00Z',
+                    'schedule': '0 */4 * * *',
+                    'description': 'Stock levels and supply chain optimization'
+                },
+                {
+                    'id': 'marketing_campaigns',
+                    'name': 'Marketing Campaigns',
+                    'type': 'dbt',
+                    'status': 'pending',
+                    'last_run': '2024-01-14T14:20:00Z',
+                    'schedule': '0 9 * * 1',
+                    'description': 'Campaign performance and ROI analysis'
+                },
+                {
+                    'id': 'user_engagement',
+                    'name': 'User Engagement',
+                    'type': 'dbt',
+                    'status': 'success',
+                    'last_run': '2024-01-15T06:15:00Z',
+                    'schedule': '0 */2 * * *',
+                    'description': 'User interaction patterns and engagement metrics'
                 }
             ]
         else:
@@ -2230,6 +2367,72 @@ def get_operations_status():
         operations = []
         progress_dir = '/tmp'
 
+        # First, add some mock operations for diverse pipeline data
+        mock_operations = [
+            {
+                'operation_id': 'op_stavanger_001',
+                'pipeline_name': 'stavanger_parking',
+                'status': 'success',
+                'start_time': time.time() - 3600,  # 1 hour ago
+                'end_time': time.time() - 3000,    # 50 minutes ago
+                'progress': 100,
+                'phase': 'completed',
+                'message': 'Pipeline completed successfully'
+            },
+            {
+                'operation_id': 'op_customer_001',
+                'pipeline_name': 'customer_analytics',
+                'status': 'running',
+                'start_time': time.time() - 1800,  # 30 minutes ago
+                'progress': 65,
+                'phase': 'processing',
+                'message': 'Processing customer segmentation data'
+            },
+            {
+                'operation_id': 'op_sales_001',
+                'pipeline_name': 'sales_reporting',
+                'status': 'success',
+                'start_time': time.time() - 7200,  # 2 hours ago
+                'end_time': time.time() - 6000,    # 1.67 hours ago
+                'progress': 100,
+                'phase': 'completed',
+                'message': 'Sales report generated successfully'
+            },
+            {
+                'operation_id': 'op_inventory_001',
+                'pipeline_name': 'inventory_management',
+                'status': 'failed',
+                'start_time': time.time() - 14400,  # 4 hours ago
+                'end_time': time.time() - 13800,    # 3.83 hours ago
+                'progress': 100,
+                'phase': 'failed',
+                'message': 'Connection timeout to inventory database'
+            },
+            {
+                'operation_id': 'op_marketing_001',
+                'pipeline_name': 'marketing_campaigns',
+                'status': 'pending',
+                'start_time': time.time() - 28800,  # 8 hours ago
+                'progress': 0,
+                'phase': 'queued',
+                'message': 'Waiting for marketing data refresh'
+            },
+            {
+                'operation_id': 'op_engagement_001',
+                'pipeline_name': 'user_engagement',
+                'status': 'success',
+                'start_time': time.time() - 10800,  # 3 hours ago
+                'end_time': time.time() - 9000,     # 2.5 hours ago
+                'progress': 100,
+                'phase': 'completed',
+                'message': 'User engagement metrics updated'
+            }
+        ]
+
+        # Add mock operations to the list
+        operations.extend(mock_operations)
+
+        # Add real operations from progress files
         for filename in os.listdir(progress_dir):
             if filename.startswith('operation_run_pipeline_'):
                 filepath = os.path.join(progress_dir, filename)
@@ -5409,9 +5612,77 @@ def get_cleanup_files():
         }), 500
 
 
+def find_available_port():
+    """Find an available port for the dashboard"""
+    import socket
+    import subprocess
+    import time
+
+    # Try port 5000 first with aggressive cleanup
+    port = 5000
+
+    # First, try to clean up any stale connections on port 5000
+    try:
+        # Try to kill any process using port 5000
+        result = subprocess.run(['fuser', '-k', '5000/tcp'], capture_output=True, timeout=5)
+    except:
+        pass
+
+    try:
+        # Try to close any TIME_WAIT connections
+        result = subprocess.run(['ss', '-K', 'dst', ':5000'], capture_output=True, timeout=5)
+    except:
+        pass
+
+    # Give it a moment to clean up
+    time.sleep(1)
+
+    # Now try to bind
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(('0.0.0.0', port))
+            s.listen(1)
+            s.close()
+        print("✅ Successfully bound to port 5000")
+        return port
+    except OSError as e:
+        print(f"⚠️  Port 5000 binding failed: {e}")
+        print("🔄 Falling back to alternative ports...")
+
+        # Try alternative ports as fallback
+        for alt_port in [5001, 5002, 5003, 5004]:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    s.bind(('0.0.0.0', alt_port))
+                    s.listen(1)
+                    s.close()
+                print(f"✅ Successfully bound to port {alt_port}")
+                return alt_port
+            except OSError:
+                continue
+
+    raise RuntimeError("No available ports found in range 5000-5004")
+
 if __name__ == '__main__':
-    # Simplified startup for debugging
-    print("Starting FOSS Data Platform Dashboard...")
-    print("Trino URL: http://localhost:8080")
-    print("Dashboard will be available at: http://localhost:5000")
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    # Find an available port for the dashboard
+    try:
+        port = find_available_port()
+        print("Starting FOSS Data Platform Dashboard...")
+        print("Trino URL: http://localhost:8080")
+        print(f"Dashboard will be available at: http://localhost:{port}")
+        if port == 5000:
+            print("✅ Port 5000 is available and ready")
+        else:
+            print(f"⚠️  Using port {port} (5000 was occupied)")
+
+        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        print("💡 Try stopping other services or use: ./scripts/start_dashboard.sh")
+        exit(1)
+    except KeyboardInterrupt:
+        print("\nShutting down gracefully...")
+        exit(0)

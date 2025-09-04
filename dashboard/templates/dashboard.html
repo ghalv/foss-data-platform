@@ -69,7 +69,7 @@
             </div>
         </div>
 
-        <!-- Platform Health Overview -->
+        <!-- Pipeline Overview -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card border-0 shadow-sm">
@@ -77,16 +77,16 @@
                         <div class="row align-items-center">
                             <div class="col-md-8">
                                 <h3 class="card-title mb-2">
-                                    <i class="fas fa-heartbeat text-success"></i>
-                                    Platform Health
+                                    <i class="fas fa-cogs text-primary"></i>
+                                    Pipeline Status
                                 </h3>
                                 <p class="card-text mb-0">
-                                    {{ services.values() | selectattr('status', 'equalto', 'healthy') | list | length }}/{{ services|length }} services are healthy
+                                    <span id="pipelineModels">0/0</span> pipelines configured, status: <span id="pipelineStatus">Unknown</span>
                                 </p>
                             </div>
                             <div class="col-md-4 text-end">
-                                <a href="/health" class="btn btn-outline-success">
-                                    <i class="fas fa-chart-line me-2"></i>View Details
+                                <a href="/pipeline-management" class="btn btn-outline-primary">
+                                    <i class="fas fa-cogs me-2"></i>Manage Pipelines
                                 </a>
                             </div>
                         </div>
@@ -121,72 +121,37 @@
                 <div class="col-md-4">
                     <div class="card h-100">
                         <div class="card-body text-center">
-                            <i class="fas fa-heartbeat fa-3x text-success mb-3"></i>
-                            <h5 class="card-title">System Health</h5>
-                            <p class="card-text">Monitor platform health and performance</p>
-                            <a href="/health" class="btn btn-success">View Health</a>
+                            <i class="fas fa-info-circle fa-3x text-info mb-3"></i>
+                            <h5 class="card-title">About Platform</h5>
+                            <p class="card-text">Learn about the platform architecture and capabilities</p>
+                            <a href="/about" class="btn btn-info">View About</a>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Data Platform Features -->
+        <!-- Quick Actions -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header bg-info text-white">
+                    <div class="card-header bg-light">
                         <h5 class="mb-0">
-                            <i class="fas fa-database"></i> Data Platform Features
+                            <i class="fas fa-bolt"></i> Quick Actions
                         </h5>
                     </div>
                     <div class="card-body">
                         <div class="row text-center">
-                            <div class="col-md-3">
-                                <a href="/data-browser" class="text-decoration-none">
-                                    <div class="p-3 border rounded h-100">
-                                        <i class="fas fa-search fa-2x text-primary mb-2"></i>
-                                        <h6>SQL Query</h6>
-                                        <small class="text-muted">Execute SQL queries</small>
-                                    </div>
+                            <div class="col-md-6">
+                                <a href="/data-browser" class="btn btn-outline-primary btn-lg w-100 mb-3">
+                                    <i class="fas fa-search me-2"></i>
+                                    Query Data
                                 </a>
                             </div>
-                            <div class="col-md-3">
-                                <a href="/storage-management" class="text-decoration-none">
-                                    <div class="p-3 border rounded h-100">
-                                        <i class="fas fa-hdd fa-2x text-success mb-2"></i>
-                                        <h6>Storage Management</h6>
-                                        <small class="text-muted">Manage buckets & files</small>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="col-md-3">
-                                <a href="/bi-dashboard" class="text-decoration-none">
-                                    <div class="p-3 border rounded h-100">
-                                        <i class="fas fa-chart-line fa-2x text-info mb-2"></i>
-                                        <h6>BI Dashboard</h6>
-                                        <small class="text-muted">Analytics & insights</small>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="col-md-3">
-                                <a href="/streaming" class="text-decoration-none">
-                                    <div class="p-3 border rounded h-100">
-                                        <i class="fas fa-stream fa-2x text-warning mb-2"></i>
-                                        <h6>Real-time Streaming</h6>
-                                        <small class="text-muted">Kafka & Flink monitoring</small>
-                                    </div>
-                                </a>
-                            </div>
-                        </div>
-                        <div class="row text-center mt-3">
-                            <div class="col-md-3">
-                                <a href="/api/quality/run-checks" class="text-decoration-none" target="_blank">
-                                    <div class="p-3 border rounded h-100">
-                                        <i class="fas fa-shield-alt fa-2x text-danger mb-2"></i>
-                                        <h6>Data Quality</h6>
-                                        <small class="text-muted">Run quality checks</small>
-                                    </div>
+                            <div class="col-md-6">
+                                <a href="/pipeline-management" class="btn btn-outline-success btn-lg w-100 mb-3">
+                                    <i class="fas fa-cogs me-2"></i>
+                                    Manage Pipelines
                                 </a>
                             </div>
                         </div>
@@ -318,6 +283,9 @@
             <div class="col-12 text-center text-muted">
                 <small>
                     <i class="fas fa-code"></i> Built with modern data engineering best practices<br>
+                    <a href="/about" class="text-decoration-none text-muted">
+                        <i class="fas fa-info-circle"></i> Learn about the platform architecture
+                    </a><br>
                     FOSS Data Platform - Enterprise-grade open source solution
                 </small>
             </div>
@@ -331,97 +299,56 @@
             updateQuickStatus();
         });
 
+        let lastPipelineStats = null;
+
         function updateQuickStatus() {
-            // Update service health count
-            updateServiceHealthCount();
-            
-            // Update pipeline models count
-            updatePipelineModelsCount();
-            
-            // Update data records count
-            updateDataRecordsCount();
-            
-            // Update pipeline status
-            updatePipelineStatus();
+            // Only update essential pipeline data
+            updatePipelineData();
         }
 
-        function updateServiceHealthCount() {
-            fetch('/api/health')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.services) {
-                        const totalServices = Object.keys(data.services).length;
-                        const healthyServices = Object.values(data.services).filter(s => s.status === 'healthy').length;
-                        document.getElementById('healthyServices').textContent = `${healthyServices}/${totalServices}`;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching service health:', error);
-                    document.getElementById('healthyServices').textContent = '0/0';
-                });
-        }
+        // Removed health monitoring - keeping dashboard lightweight
 
-        function updatePipelineModelsCount() {
+        function updatePipelineData() {
             fetch('/api/pipeline/stats')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        lastPipelineStats = data;
+
+                        // Update pipeline count only
                         const totalPipelines = data.total_pipelines || 0;
                         const activePipelines = data.active_pipelines || 0;
                         document.getElementById('pipelineModels').textContent = `${activePipelines}/${totalPipelines}`;
+
+                        // Update pipeline status
+                        updatePipelineStatusFromData(data);
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching pipeline stats:', error);
                     document.getElementById('pipelineModels').textContent = '0/0';
-                });
-        }
-
-        function updateDataRecordsCount() {
-            fetch('/api/platform/parking-metrics')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.total_records !== undefined) {
-                        const count = data.total_records;
-                        if (count > 1000) {
-                            document.getElementById('dataRecords').textContent = `${(count/1000).toFixed(1)}K+`;
-                        } else {
-                            document.getElementById('dataRecords').textContent = count.toString();
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching data records:', error);
-                    document.getElementById('dataRecords').textContent = '0';
-                });
-        }
-
-        function updatePipelineStatus() {
-            fetch('/api/pipeline/stats')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.failed_pipelines > 0) {
-                            document.getElementById('pipelineStatus').textContent = 'Warning';
-                            document.getElementById('pipelineStatus').className = 'text-warning mb-1';
-                        } else if (data.active_pipelines > 0) {
-                            document.getElementById('pipelineStatus').textContent = 'Active';
-                            document.getElementById('pipelineStatus').className = 'text-success mb-1';
-                        } else {
-                            document.getElementById('pipelineStatus').textContent = 'Idle';
-                            document.getElementById('pipelineStatus').className = 'text-secondary mb-1';
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching pipeline status:', error);
                     document.getElementById('pipelineStatus').textContent = 'Unknown';
                     document.getElementById('pipelineStatus').className = 'text-secondary mb-1';
                 });
         }
 
-        // Auto-refresh quick status every 30 seconds
-        setInterval(updateQuickStatus, 30000);
+        // Removed data records count - keeping dashboard lightweight
+
+        function updatePipelineStatusFromData(data) {
+            if (data.failed_pipelines > 0) {
+                document.getElementById('pipelineStatus').textContent = 'Warning';
+                document.getElementById('pipelineStatus').className = 'text-warning mb-1';
+            } else if (data.active_pipelines > 0) {
+                document.getElementById('pipelineStatus').textContent = 'Active';
+                document.getElementById('pipelineStatus').className = 'text-success mb-1';
+            } else {
+                document.getElementById('pipelineStatus').textContent = 'Idle';
+                document.getElementById('pipelineStatus').className = 'text-secondary mb-1';
+            }
+        }
+
+        // Auto-refresh every 5 minutes (very lightweight)
+        setInterval(updateQuickStatus, 300000);
     </script>
 </body>
 </html>

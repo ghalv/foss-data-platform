@@ -32,14 +32,58 @@
             font-size: 0.75rem;
             padding: 0.25rem 0.5rem;
         }
-        .pipeline-row:hover {
-            background-color: #f8f9fa;
+
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-        .pipeline-row td:last-child {
-            cursor: default;
+        .pipeline-card {
+            transition: all 0.3s ease;
+            border: 1px solid rgba(0,0,0,0.05);
         }
-        .pipeline-row td:last-child * {
-            cursor: pointer;
+        .pipeline-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+            border-color: rgba(0,123,255,0.2);
+        }
+
+        .pipeline-card .card-header {
+            border-bottom: none;
+            border-radius: 8px 8px 0 0 !important;
+        }
+
+        .pipeline-card .card-footer {
+            border-top: 1px solid rgba(0,0,0,0.05);
+            border-radius: 0 0 8px 8px !important;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-success { background-color: #28a745; }
+        .status-running { background-color: #007bff; animation: pulse 2s infinite; }
+        .status-failed { background-color: #dc3545; }
+        .status-pending { background-color: #ffc107; }
+        .status-unknown { background-color: #6c757d; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .metric-divider {
+            border-right: 1px solid #dee2e6;
+        }
+
+        .pipeline-type-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
         }
 
         /* Timeline styles for phase visualization */
@@ -98,6 +142,158 @@
             0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
             100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+        }
+
+        /* Medallion Architecture Flow Styles */
+        .medallion-flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 200px;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .flow-connector {
+            flex: 1;
+            height: 3px;
+            background: linear-gradient(90deg, #e9ecef 0%, #dee2e6 50%, #e9ecef 100%);
+            position: relative;
+            margin: 0 10px;
+        }
+
+        .flow-connector.active {
+            background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #28a745 100%);
+        }
+
+        .flow-connector.processing {
+            background: linear-gradient(90deg, #007bff 0%, #6610f2 50%, #007bff 100%);
+            animation: flow-pulse 2s infinite;
+        }
+
+        @keyframes flow-pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .flow-step {
+            flex: 0 0 auto;
+            text-align: center;
+            min-width: 160px;
+            position: relative;
+        }
+
+        .step-node {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            position: relative;
+            transition: all 0.3s ease;
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .step-node.bronze {
+            background: linear-gradient(135deg, #cd7f32 0%, #a0522d 100%);
+        }
+
+        .step-node.silver {
+            background: linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%);
+        }
+
+        .step-node.gold {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
+        }
+
+        .step-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .step-node.processing {
+            animation: node-processing 1.5s ease-in-out infinite;
+        }
+
+        @keyframes node-processing {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .step-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        .step-description {
+            font-size: 0.75rem;
+            color: #6c757d;
+            max-width: 140px;
+            margin: 0 auto;
+            line-height: 1.2;
+        }
+
+        .step-metrics {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            border: 1px solid #e9ecef;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.6rem;
+        }
+
+        .flow-status-indicator {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .flow-status-indicator.success { background-color: #28a745; }
+        .flow-status-indicator.warning { background-color: #ffc107; }
+        .flow-status-indicator.error { background-color: #dc3545; }
+        .flow-status-indicator.processing { background-color: #007bff; }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .medallion-flow {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .flow-connector {
+                width: 3px;
+                height: 40px;
+                margin: 10px auto;
+                background: linear-gradient(180deg, #e9ecef 0%, #dee2e6 50%, #e9ecef 100%);
+            }
+
+            .flow-step {
+                min-width: auto;
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -170,16 +366,53 @@
             </div>
         </div>
 
-        <!-- Pipeline Lifecycle Monitoring -->
+        <!-- Pipeline Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-rocket"></i> Quick Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-primary w-100 mb-2" onclick="runPipeline()">
+                                    <i class="fas fa-play"></i> Run Pipeline
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-success w-100 mb-2" onclick="generateReport()">
+                                    <i class="fas fa-chart-bar"></i> Generate Report
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-info w-100 mb-2" onclick="viewDataQuality()">
+                                    <i class="fas fa-search"></i> Data Quality
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-warning w-100 mb-2" onclick="window.open('http://localhost:8888/lab', '_blank')">
+                                    <i class="fab fa-jupyter"></i> JupyterLab
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipeline Overview -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <i class="fas fa-eye"></i> Pipeline Lifecycle Monitoring
+                            <i class="fas fa-stream"></i> Pipeline Overview
                         </h5>
                         <div class="d-flex align-items-center">
-                            <span class="badge bg-light text-dark me-2" id="lastUpdate">Loading...</span>
+                            <small class="text-white-50 me-3">Last updated: <span id="lastUpdateTime">Loading...</span></small>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
                                 <label class="form-check-label text-white" for="autoRefresh">
@@ -190,7 +423,7 @@
                     </div>
                     <div class="card-body">
                         <div id="pipelineLifecycleContainer">
-                            <!-- Pipeline lifecycle will be loaded here -->
+                            <!-- Pipeline overview will be loaded here -->
                         </div>
                     </div>
                 </div>
@@ -549,7 +782,7 @@
             stopAutoRefresh(); // Clear any existing interval
             refreshInterval = setInterval(() => {
                 loadPipelineLifecycle();
-            }, 3000); // Refresh every 3 seconds
+            }, 15000); // Refresh every 15 seconds (reduced from 3 seconds for performance)
         }
 
         function stopAutoRefresh() {
@@ -559,6 +792,297 @@
             }
         }
 
+        // Pipeline refresh variables
+
+        function generateMedallionFlowHTML(pipelines, operations) {
+            // Define the medallion architecture steps
+            const medallionSteps = [
+                {
+                    id: 'ingestion',
+                    layer: 'bronze',
+                    label: 'API Ingestion',
+                    description: 'Fetch live parking data from Stavanger API',
+                    icon: 'fas fa-cloud-download-alt',
+                    status: 'completed'
+                },
+                {
+                    id: 'delta_load',
+                    layer: 'bronze',
+                    label: 'Delta Load',
+                    description: 'Incremental data loading with Iceberg MERGE',
+                    icon: 'fas fa-exchange-alt',
+                    status: 'completed'
+                },
+                {
+                    id: 'bronze_landing',
+                    layer: 'bronze',
+                    label: 'Bronze Landing',
+                    description: 'Raw data with minimal transformation',
+                    icon: 'fas fa-database',
+                    status: 'completed'
+                },
+                {
+                    id: 'data_quality',
+                    layer: 'bronze',
+                    label: 'Quality Audit',
+                    description: 'Data validation and anomaly detection',
+                    icon: 'fas fa-search',
+                    status: 'completed'
+                },
+                {
+                    id: 'silver_entities',
+                    layer: 'silver',
+                    label: 'Silver Entities',
+                    description: 'Cleaned parking locations & master data',
+                    icon: 'fas fa-map-marker-alt',
+                    status: 'completed'
+                },
+                {
+                    id: 'silver_facts',
+                    layer: 'silver',
+                    label: 'Silver Facts',
+                    description: 'Validated occupancy measurements',
+                    icon: 'fas fa-chart-line',
+                    status: 'completed'
+                },
+                {
+                    id: 'gold_reports',
+                    layer: 'gold',
+                    label: 'Gold Reports',
+                    description: 'Business intelligence & KPIs',
+                    icon: 'fas fa-chart-bar',
+                    status: 'completed'
+                },
+                {
+                    id: 'gold_dashboards',
+                    layer: 'gold',
+                    label: 'Gold Dashboards',
+                    description: 'Real-time analytics & monitoring',
+                    icon: 'fas fa-tachometer-alt',
+                    status: 'completed'
+                },
+                {
+                    id: 'gold_analytics',
+                    layer: 'gold',
+                    label: 'Gold Analytics',
+                    description: 'Predictive features & ML-ready data',
+                    icon: 'fas fa-brain',
+                    status: 'completed'
+                }
+            ];
+
+            // Determine current processing status based on operations
+            const currentOperation = operations.find(op => op.status === 'running' || op.status === 'pending');
+            let currentStepIndex = -1;
+
+            if (currentOperation) {
+                // Map operation steps to medallion steps
+                const stepMapping = {
+                    'Seed live data': 0, // ingestion
+                    'Run dbt models': 3, // data_quality
+                    'Generate reports': 6  // gold_reports
+                };
+
+                const stepName = currentOperation.description || currentOperation.name || '';
+                for (const [key, index] of Object.entries(stepMapping)) {
+                    if (stepName.includes(key)) {
+                        currentStepIndex = index;
+                        break;
+                    }
+                }
+            }
+
+            // Generate HTML for the flow
+            let html = '<div class="medallion-flow">';
+
+            medallionSteps.forEach((step, index) => {
+                // Determine step status
+                let stepStatus = 'pending';
+                let connectorClass = '';
+                let nodeClass = step.layer;
+
+                if (index < currentStepIndex) {
+                    stepStatus = 'completed';
+                    connectorClass = 'active';
+                } else if (index === currentStepIndex) {
+                    stepStatus = 'processing';
+                    connectorClass = 'processing';
+                    nodeClass += ' processing';
+                } else if (pipelines.length > 0 && operations.some(op => op.status === 'success')) {
+                    stepStatus = 'completed';
+                    connectorClass = 'active';
+                }
+
+                // Add connector (except for first step)
+                if (index > 0) {
+                    html += `<div class="flow-connector ${connectorClass}"></div>`;
+                }
+
+                // Add step
+                html += `
+                    <div class="flow-step">
+                        <div class="step-node ${nodeClass}" title="${step.description}">
+                            <i class="${step.icon}"></i>
+                            <div class="flow-status-indicator ${stepStatus}"></div>
+                        </div>
+                        <div class="step-label">${step.label}</div>
+                        <div class="step-description">${step.description}</div>
+                        <div class="step-metrics">
+                            <div class="metric-value">${getStepMetric(step.id, pipelines, operations)}</div>
+                            <div class="metric-label">${getStepMetricLabel(step.id)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+
+            // Add legend
+            html += `
+                <div class="mt-4 pt-3 border-top">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="step-node bronze" style="width: 20px; height: 20px; margin-right: 8px;"></div>
+                                <span class="small text-muted">Bronze Layer - Raw Data</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="step-node silver" style="width: 20px; height: 20px; margin-right: 8px;"></div>
+                                <span class="small text-muted">Silver Layer - Clean Data</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="step-node gold" style="width: 20px; height: 20px; margin-right: 8px;"></div>
+                                <span class="small text-muted">Gold Layer - Business Analytics</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return html;
+        }
+
+        function getStepMetric(stepId, pipelines, operations) {
+            // Return relevant metrics for each step
+            switch (stepId) {
+                case 'ingestion':
+                    const totalOperations = operations.length;
+                    return totalOperations > 0 ? totalOperations : '0';
+                case 'bronze_landing':
+                    return pipelines.length > 0 ? '✓' : '○';
+                case 'data_quality':
+                    const successOps = operations.filter(op => op.status === 'success').length;
+                    return successOps > 0 ? successOps : '○';
+                case 'silver_entities':
+                    return pipelines.length > 0 ? pipelines.length : '○';
+                case 'silver_facts':
+                    return operations.filter(op => op.status === 'success').length > 0 ? '✓' : '○';
+                case 'gold_reports':
+                case 'gold_dashboards':
+                case 'gold_analytics':
+                    return operations.filter(op => op.status === 'success').length > 0 ? '✓' : '○';
+                default:
+                    return '○';
+            }
+        }
+
+        function getStepMetricLabel(stepId) {
+            switch (stepId) {
+                case 'ingestion': return 'API calls';
+                case 'bronze_landing': return 'Data loaded';
+                case 'data_quality': return 'Quality checks';
+                case 'silver_entities': return 'Entities';
+                case 'silver_facts': return 'Facts processed';
+                case 'gold_reports': return 'Reports ready';
+                case 'gold_dashboards': return 'Dashboards live';
+                case 'gold_analytics': return 'ML features';
+                default: return 'Status';
+            }
+        }
+
+        function updateFlowLastRefresh() {
+            const now = new Date();
+            document.getElementById('flowLastUpdate').textContent =
+                now.toLocaleTimeString();
+        }
+
+        function updateLastRefresh() {
+            console.log('updateLastRefresh called');
+            const now = new Date();
+            const element = document.getElementById('lastUpdate');
+            if (element) {
+                element.textContent = now.toLocaleTimeString();
+                console.log('Updated lastUpdate element:', now.toLocaleTimeString());
+            } else {
+                console.log('lastUpdate element not found');
+            }
+        }
+
+        // Debug: Log when functions are loaded
+        console.log('Pipeline management functions loaded:', {
+            updateLastRefresh: typeof updateLastRefresh,
+            updateFlowLastRefresh: typeof updateFlowLastRefresh,
+            loadPipelineLifecycle: typeof loadPipelineLifecycle
+        });
+
+        // Pipeline management functions
+        function runPipeline(pipelineId) {
+            if (confirm(`Run pipeline: ${pipelineId}?`)) {
+                fetch(`/api/pipeline/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pipeline: pipelineId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Pipeline started successfully!');
+                        loadPipelineLifecycle(); // Refresh the data
+                    } else {
+                        alert('Failed to start pipeline: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    alert('Error starting pipeline: ' + error.message);
+                });
+            }
+        }
+
+        function generateReport() {
+            window.open('/data-browser', '_blank');
+        }
+
+        function viewDataQuality() {
+            window.open('/data-browser', '_blank');
+        }
+
+        function openJupyterForPipeline(pipelineId) {
+            const jupyterUrl = `http://localhost:8888/lab/tree/${pipelineId}`;
+            window.open(jupyterUrl, '_blank');
+        }
+
+        function viewPipelineDetail(pipelineId) {
+            // Navigate to pipeline detail page with medallion architecture flow
+            window.location.href = `/pipeline-detail/${pipelineId}`;
+        }
+
+        function savePipeline() {
+            alert('Pipeline creation is handled through the CLI. Use: ./tools/cli/create-pipeline.sh');
+        }
+
+        function updatePipeline() {
+            alert('Pipeline updates are managed through configuration files. Edit the YAML files in config/pipelines/');
+        }
+
+        function saveCleanupPolicies() {
+            alert('Cleanup policies are configured in the pipeline YAML files under the cleanup section.');
+        }
+
+        // Integrate medallion flow with existing lifecycle loading
         function loadPipelineLifecycle() {
             // Load multiple data sources for comprehensive monitoring
             Promise.all([
@@ -570,6 +1094,8 @@
                 updateStats(statsData);
                 updatePipelineLifecycle(pipelineData, operationsData);
                 updateLastRefresh();
+
+                // Pipeline data loaded successfully
             })
             .catch(error => {
                 console.error('Error loading pipeline lifecycle:', error);
@@ -608,540 +1134,259 @@
                     <div class="text-center py-5">
                         <i class="fas fa-database fa-3x text-muted mb-3"></i>
                         <h5 class="text-muted">No Pipelines Configured</h5>
-                        <p class="text-muted">Configure your first pipeline to start monitoring</p>
+                        <p class="text-muted mb-3">Get started by adding your first data pipeline</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPipelineModal">
+                            <i class="fas fa-plus"></i> Add Your First Pipeline
+                        </button>
                     </div>
                 `;
             }
 
-            let html = '<div class="row">';
+            // Sort pipelines by status (running first, then recently run)
+            pipelines.sort((a, b) => {
+                const aOps = operations.filter(op => op.pipeline_name === a.name);
+                const bOps = operations.filter(op => op.pipeline_name === b.name);
+                const aLast = aOps.sort((x, y) => y.start_time - x.start_time)[0];
+                const bLast = bOps.sort((x, y) => y.start_time - x.start_time)[0];
+
+                // Running pipelines first
+                if (aLast?.status === 'running' && bLast?.status !== 'running') return -1;
+                if (bLast?.status === 'running' && aLast?.status !== 'running') return 1;
+
+                // Then by most recent activity
+                return (bLast?.start_time || 0) - (aLast?.start_time || 0);
+            });
+
+            let html = `<div class="row">`;
 
             pipelines.forEach(pipeline => {
                 // Find the most recent operation for this pipeline
                 const pipelineOperations = operations.filter(op => op.pipeline_name === pipeline.name);
-                const operation = pipelineOperations.sort((a, b) => b.start_time - a.start_time)[0] || {};
-                const lifecycleHtml = generatePipelineLifecycle(pipeline, operation);
-                html += lifecycleHtml;
-            });
+                const lastOperation = pipelineOperations.sort((a, b) => b.start_time - a.start_time)[0] || {};
 
-            html += '</div>';
-            return html;
-        }
+                // Find last successful run
+                const lastSuccess = pipelineOperations
+                    .filter(op => op.status === 'success')
+                    .sort((a, b) => b.start_time - a.start_time)[0];
 
-        function generatePipelineLifecycle(pipeline, operation) {
-            const statusClass = getStatusClass(operation.status || 'unknown');
-            const statusIcon = getStatusIcon(operation.status || 'unknown');
-            const progressPercent = operation.progress || 0;
-            const isActive = operation.status === 'running';
+                // Find last failed run
+                const lastFail = pipelineOperations
+                    .filter(op => op.status === 'failed')
+                    .sort((a, b) => b.start_time - a.start_time)[0];
 
-            return `
-                <div class="col-md-6 mb-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header ${statusClass} text-white d-flex justify-content-between align-items-center">
-                            <div>
-                                <i class="${statusIcon} me-2"></i>
-                                <strong>${pipeline.name}</strong>
-                            </div>
-                            <div class="d-flex align-items-center">
-                                <span class="badge bg-light text-dark me-2">${pipeline.type || 'dbt'}</span>
-                                <div class="status-indicator ${getStatusIndicatorClass(operation.status)}"></div>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <small class="text-muted">Progress</small>
-                                    <small class="text-muted">${progressPercent}%</small>
-                                </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar ${getProgressBarClass(operation.status)}"
-                                         style="width: ${progressPercent}%"
-                                         role="progressbar">
-                                    </div>
-                                </div>
-                            </div>
+                // Calculate success rate
+                const totalRuns = pipelineOperations.length;
+                const successfulRuns = pipelineOperations.filter(op => op.status === 'success').length;
+                const successRate = totalRuns > 0 ? Math.round((successfulRuns / totalRuns) * 100) : 0;
 
-                            <div class="mb-3">
-                                <strong>Current Phase:</strong>
-                                <span class="badge ${getPhaseBadgeClass(operation.phase)} ms-2">
-                                    ${operation.phase || 'Unknown'}
-                                </span>
-                            </div>
+                // Get status information
+                const statusInfo = getStatusInfo(lastOperation.status || 'unknown');
+                const lastRunTime = lastOperation.start_time ? new Date(lastOperation.start_time).toLocaleString() : 'Never';
+                const lastFailTime = lastFail ? new Date(lastFail.start_time).toLocaleString() : 'Never';
 
-                            <div class="mb-3">
-                                <strong>Status:</strong>
-                                <span class="badge ${getStatusBadgeClass(operation.status)} ms-2">
-                                    ${operation.status || 'Unknown'}
-                                </span>
-                            </div>
-
-                            ${generatePhaseTimeline(operation.phases || [])}
-
-                            <div class="mt-3">
-                                <strong>Last Updated:</strong>
-                                <small class="text-muted ms-2">${formatTimestamp(operation.last_updated)}</small>
-                            </div>
-
-                            ${operation.message ? `
-                                <div class="mt-3 alert ${getMessageAlertClass(operation.status)} py-2">
-                                    <small>${operation.message}</small>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function generatePhaseTimeline(phases) {
-            if (!phases || phases.length === 0) {
-                return '<div class="text-muted small">No phase information available</div>';
-            }
-
-            let html = '<div class="mb-3"><strong>Execution Timeline:</strong></div>';
-            html += '<div class="timeline">';
-
-            phases.forEach((phase, index) => {
-                const isLast = index === phases.length - 1;
-                const phaseClass = getPhaseClass(phase.status);
+                // Pipeline description (mock for now, could come from pipeline config)
+                const description = getPipelineDescription(pipeline.name);
 
                 html += `
-                    <div class="timeline-item ${isLast ? 'current' : ''}">
-                        <div class="timeline-marker ${phaseClass}"></div>
-                        <div class="timeline-content">
-                            <div class="d-flex justify-content-between">
-                                <strong class="small">${phase.name}</strong>
-                                <small class="text-muted">${phase.duration || '0s'}</small>
+                    <div class="col-lg-6 col-xl-4 mb-4">
+                        <div class="card h-100 border-0 shadow-sm pipeline-card" onclick="viewPipelineDetail('${pipeline.id}')" style="cursor: pointer;">
+                            <div class="card-header ${statusInfo.headerClass} text-white d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <i class="${statusInfo.icon} me-2"></i>
+                                    <div>
+                                        <h6 class="mb-0 fw-bold">${pipeline.name}</h6>
+                                        <small class="opacity-75">${description}</small>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="badge ${statusInfo.badgeClass} mb-1">${statusInfo.label}</div>
+                                    <div class="small opacity-75">${successRate}% success</div>
+                                </div>
                             </div>
-                            <div class="small text-muted">${formatTimestamp(phase.timestamp)}</div>
+                            <div class="card-body">
+                                <div class="row text-center mb-3">
+                                    <div class="col-4">
+                                        <div class="border-end">
+                                            <div class="h5 mb-0 text-primary">${totalRuns}</div>
+                                            <small class="text-muted">Total Runs</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="border-end">
+                                            <div class="h5 mb-0 text-success">${successfulRuns}</div>
+                                            <small class="text-muted">Success</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="h5 mb-0 text-warning">${pipelineOperations.filter(op => op.status === 'running').length}</div>
+                                        <small class="text-muted">Running</small>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <small class="text-muted">Last Run</small>
+                                        <small class="text-muted">${lastRunTime}</small>
+                                    </div>
+                                    ${lastFail ? `
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-danger">Last Fail</small>
+                                        <small class="text-danger">${lastFailTime}</small>
+                                    </div>
+                                    ` : ''}
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-primary btn-sm flex-fill" onclick="event.stopPropagation(); runPipeline('${pipeline.id}')">
+                                        <i class="fas fa-play"></i> Run
+                                    </button>
+                                    <button class="btn btn-outline-info btn-sm flex-fill" onclick="event.stopPropagation(); viewPipelineDetail('${pipeline.id}')">
+                                        <i class="fas fa-eye"></i> Details
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="fas fa-code-branch"></i> ${pipeline.type || 'dbt'}
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock"></i> ${pipeline.schedule || 'Manual'}
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
             });
 
-            html += '</div>';
+            html += `</div>`;
             return html;
         }
 
-        function getStatusClass(status) {
-            switch (status) {
-                case 'running': return 'bg-primary';
-                case 'success': return 'bg-success';
-                case 'failed': return 'bg-danger';
-                case 'warning': return 'bg-warning';
-                default: return 'bg-secondary';
-            }
+        function getStatusInfo(status) {
+            const statusMap = {
+                'success': {
+                    label: 'Success',
+                    icon: 'fas fa-check-circle',
+                    headerClass: 'bg-success',
+                    badgeClass: 'bg-success'
+                },
+                'running': {
+                    label: 'Running',
+                    icon: 'fas fa-play-circle',
+                    headerClass: 'bg-primary',
+                    badgeClass: 'bg-primary'
+                },
+                'failed': {
+                    label: 'Failed',
+                    icon: 'fas fa-exclamation-triangle',
+                    headerClass: 'bg-danger',
+                    badgeClass: 'bg-danger'
+                },
+                'pending': {
+                    label: 'Pending',
+                    icon: 'fas fa-clock',
+                    headerClass: 'bg-warning',
+                    badgeClass: 'bg-warning'
+                },
+                'unknown': {
+                    label: 'Unknown',
+                    icon: 'fas fa-question-circle',
+                    headerClass: 'bg-secondary',
+                    badgeClass: 'bg-secondary'
+                }
+            };
+            return statusMap[status] || statusMap['unknown'];
         }
 
-        function getStatusIcon(status) {
-            switch (status) {
-                case 'running': return 'fas fa-play-circle';
-                case 'success': return 'fas fa-check-circle';
-                case 'failed': return 'fas fa-times-circle';
-                case 'warning': return 'fas fa-exclamation-triangle';
-                default: return 'fas fa-question-circle';
+        function getPipelineDescription(pipelineName) {
+            // Mock descriptions for different pipeline types
+            const descriptions = {
+                'stavanger_parking': 'Real-time parking utilization and business intelligence',
+                'customer_analytics': 'Customer behavior analysis and segmentation',
+                'sales_reporting': 'Sales performance and revenue analytics',
+                'inventory_management': 'Stock levels and supply chain optimization',
+                'marketing_campaigns': 'Campaign performance and ROI analysis',
+                'financial_reporting': 'Financial statements and budget analysis',
+                'user_engagement': 'User interaction patterns and engagement metrics',
+                'product_analytics': 'Product usage analytics and feature adoption',
+                'supply_chain': 'Supply chain optimization and logistics tracking',
+                'quality_assurance': 'Data quality monitoring and validation checks',
+                'compliance_reporting': 'Regulatory compliance and audit reporting'
+            };
+
+            // If we have a specific description, use it
+            if (descriptions[pipelineName]) {
+                return descriptions[pipelineName];
             }
+
+            // Otherwise generate a generic description based on name
+            const nameParts = pipelineName.replace(/_/g, ' ').split(' ');
+            return `${nameParts.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Pipeline`;
         }
 
-        function getStatusIndicatorClass(status) {
-            switch (status) {
-                case 'running': return 'status-running';
-                case 'success': return 'status-success';
-                case 'failed': return 'status-error';
-                case 'warning': return 'status-warning';
-                default: return 'status-stopped';
-            }
-        }
-
-        function getProgressBarClass(status) {
-            switch (status) {
-                case 'running': return 'bg-primary progress-bar-striped progress-bar-animated';
-                case 'success': return 'bg-success';
-                case 'failed': return 'bg-danger';
-                default: return 'bg-secondary';
-            }
-        }
-
-        function getPhaseBadgeClass(phase) {
-            switch (phase) {
-                case 'seed': return 'bg-info';
-                case 'run': return 'bg-primary';
-                case 'test': return 'bg-warning';
-                case 'complete': return 'bg-success';
-                default: return 'bg-secondary';
-            }
-        }
-
-        function getStatusBadgeClass(status) {
-            switch (status) {
-                case 'running': return 'bg-primary';
-                case 'success': return 'bg-success';
-                case 'failed': return 'bg-danger';
-                case 'warning': return 'bg-warning';
-                default: return 'bg-secondary';
-            }
-        }
-
-        function getPhaseClass(status) {
-            switch (status) {
-                case 'completed': return 'completed';
-                case 'running': return 'running';
-                case 'failed': return 'failed';
-                default: return 'pending';
-            }
-        }
-
-        function getMessageAlertClass(status) {
-            switch (status) {
-                case 'running': return 'alert-primary';
-                case 'success': return 'alert-success';
-                case 'failed': return 'alert-danger';
-                case 'warning': return 'alert-warning';
-                default: return 'alert-secondary';
-            }
-        }
-
-        function formatTimestamp(timestamp) {
-            if (!timestamp) return 'N/A';
-            const date = new Date(timestamp * 1000);
-            return date.toLocaleTimeString();
+        function getStatusBadge(status) {
+            const statusMap = {
+                'success': '<span class="badge bg-success">Success</span>',
+                'running': '<span class="badge bg-primary">Running</span>',
+                'failed': '<span class="badge bg-danger">Failed</span>',
+                'pending': '<span class="badge bg-warning">Pending</span>',
+                'unknown': '<span class="badge bg-secondary">Unknown</span>'
+            };
+            return statusMap[status] || statusMap['unknown'];
         }
 
         function updateLastRefresh() {
             const now = new Date();
-            document.getElementById('lastUpdate').textContent =
-                'Updated: ' + now.toLocaleTimeString();
-        }
-
-        // ==========================================
-        // CLEANUP MANAGEMENT FUNCTIONS
-        // ==========================================
-
-        // Load cleanup statistics and policies
-        function loadCleanupData() {
-            Promise.all([
-                fetch('/api/cleanup/stats').then(r => r.json()),
-                fetch('/api/cleanup/policies').then(r => r.json()),
-                fetch('/api/cleanup/files').then(r => r.json())
-            ])
-            .then(([statsData, policiesData, filesData]) => {
-                updateCleanupStats(statsData);
-                updateCleanupPolicies(policiesData);
-                updateCleanupFiles(filesData);
-            })
-            .catch(error => {
-                console.error('Error loading cleanup data:', error);
-                showCleanupError('Failed to load cleanup data: ' + error.message);
-            });
-        }
-
-        // Update cleanup statistics display
-        function updateCleanupStats(data) {
-            if (!data.success) {
-                showCleanupError('Failed to load cleanup statistics');
-                return;
-            }
-
-            const stats = data.stats || [];
-            const history = data.history || [];
-
-            // Update summary stats
-            const pipelineOps = stats.find(s => s.data_type === 'pipeline_operations') || {};
-            document.getElementById('cleanupFilesCount').textContent = 'Loading...';
-            document.getElementById('cleanupSpaceSaved').textContent = formatBytes(pipelineOps.space_saved || 0);
-            document.getElementById('cleanupLastRun').textContent = formatTimestamp(pipelineOps.last_cleanup);
-
-            // Update cleanup history
-            updateCleanupHistory(history);
-        }
-
-        // Update retention policies display
-        function updateCleanupPolicies(data) {
-            if (!data.success) {
-                document.getElementById('retentionPoliciesContainer').innerHTML =
-                    '<div class="alert alert-danger">Failed to load policies</div>';
-                return;
-            }
-
-            const policies = data.policies || [];
-            let html = '';
-
-            if (policies.length === 0) {
-                html = '<div class="text-muted">No policies configured</div>';
-            } else {
-                policies.forEach(policy => {
-                    const statusBadge = policy.enabled ?
-                        '<span class="badge bg-success">Enabled</span>' :
-                        '<span class="badge bg-secondary">Disabled</span>';
-
-                    html += `
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <strong>${policy.data_type.replace('_', ' ').toUpperCase()}</strong><br>
-                                <small class="text-muted">${policy.description}</small>
-                            </div>
-                            <div class="text-end">
-                                ${statusBadge}<br>
-                                <small class="text-muted">${policy.retention_days} days</small>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-
-            document.getElementById('retentionPoliciesContainer').innerHTML = html;
-        }
-
-        // Update cleanup history display
-        function updateCleanupHistory(history) {
-            let html = '';
-
-            if (history.length === 0) {
-                html = '<div class="text-muted">No cleanup history</div>';
-            } else {
-                history.slice(0, 5).forEach(item => {
-                    const typeBadge = getCleanupTypeBadge(item.cleanup_type);
-                    html += `
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <small><strong>${item.data_type}</strong></small><br>
-                                <small class="text-muted">${formatTimestamp(item.executed_at)}</small>
-                            </div>
-                            <div class="text-end">
-                                ${typeBadge}<br>
-                                <small class="text-muted">${item.records_deleted} deleted</small>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-
-            document.getElementById('cleanupHistoryContainer').innerHTML = html;
-        }
-
-        // Update files to be cleaned
-        function updateCleanupFiles(data) {
-            if (!data.success) {
-                document.getElementById('cleanupFilesCount').textContent = 'Error';
-                return;
-            }
-
-            const files = data.operations || [];
-            const oldFiles = files.filter(f => (f.age_days || 0) > 30);
-
-            document.getElementById('cleanupFilesCount').textContent = oldFiles.length;
-        }
-
-        // Get badge for cleanup type
-        function getCleanupTypeBadge(type) {
-            switch (type) {
-                case 'automatic': return '<span class="badge bg-info">Auto</span>';
-                case 'manual': return '<span class="badge bg-primary">Manual</span>';
-                case 'emergency': return '<span class="badge bg-danger">Emergency</span>';
-                default: return '<span class="badge bg-secondary">Unknown</span>';
+            const timeString = now.toLocaleTimeString();
+            const timeElement = document.getElementById('lastUpdateTime');
+            if (timeElement) {
+                timeElement.textContent = timeString;
             }
         }
 
-        // Format bytes for display
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-        }
-
-        // Handle dry run cleanup
-        function dryRunCleanup() {
-            if (!confirm('Run cleanup in dry-run mode? This will show what would be deleted without actually deleting anything.')) {
-                return;
-            }
-
-            const button = document.getElementById('dryRunCleanupBtn');
-            const originalText = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
-            button.disabled = true;
-
-            fetch('/api/cleanup/run', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({cleanup_type: 'manual', dry_run: true})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    alert(`Dry run completed! Check logs for details.\nProcess ID: ${data.process_id}`);
-                    loadCleanupData(); // Refresh stats
-                } else {
-                    alert('Dry run failed: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                alert('Error running dry cleanup: ' + error.message);
-            })
-            .finally(() => {
-                button.innerHTML = originalText;
-                button.disabled = false;
-            });
-        }
-
-        // Handle actual cleanup
-        function runCleanup() {
-            if (!confirm('⚠️ WARNING: This will permanently delete old pipeline operations!\n\nAre you sure you want to proceed?')) {
-                return;
-            }
-
-            const button = document.getElementById('runCleanupBtn');
-            const originalText = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
-            button.disabled = true;
-
-            fetch('/api/cleanup/run', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({cleanup_type: 'manual', dry_run: false})
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    alert(`Cleanup started! Check logs for progress.\nProcess ID: ${data.process_id}`);
-                    loadCleanupData(); // Refresh stats
-                } else {
-                    alert('Cleanup failed: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                alert('Error running cleanup: ' + error.message);
-            })
-            .finally(() => {
-                button.innerHTML = originalText;
-                button.disabled = false;
-            });
-        }
-
-        // Load cleanup policies for configuration modal
-        function loadCleanupPoliciesForConfig() {
-            fetch('/api/cleanup/policies')
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    renderCleanupPoliciesForm(data.policies || []);
-                } else {
-                    document.getElementById('cleanupPoliciesForm').innerHTML =
-                        '<div class="alert alert-danger">Failed to load policies</div>';
-                }
-            })
-            .catch(error => {
-                document.getElementById('cleanupPoliciesForm').innerHTML =
-                    '<div class="alert alert-danger">Error: ' + error.message + '</div>';
-            });
-        }
-
-        // Render policies form
-        function renderCleanupPoliciesForm(policies) {
-            let html = '<form id="policiesForm">';
-
-            policies.forEach(policy => {
-                html += `
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">${policy.data_type.replace('_', ' ').toUpperCase()}</label>
-                            <small class="form-text text-muted">${policy.description}</small>
-                        </div>
-                        <div class="col-md-3">
-                            <input type="number" class="form-control" name="${policy.data_type}_days"
-                                   value="${policy.retention_days}" min="1" max="365">
-                        </div>
-                        <div class="col-md-2">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="${policy.data_type}_enabled"
-                                       ${policy.enabled ? 'checked' : ''}>
-                                <label class="form-check-label">Enabled</label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <small class="text-muted">
-                                Updated: ${formatTimestamp(policy.updated_at)}
-                            </small>
-                        </div>
-                    </div>
-                `;
-            });
-
-            html += '</form>';
-            document.getElementById('cleanupPoliciesForm').innerHTML = html;
-        }
-
-        // Save cleanup policies
-        function saveCleanupPolicies() {
-            const form = document.getElementById('policiesForm');
-            if (!form) return;
-
-            const formData = new FormData(form);
-            const updates = [];
-
-            // Parse form data
-            const policyFields = {};
-            for (let [key, value] of formData.entries()) {
-                const [dataType, field] = key.split('_');
-                if (!policyFields[dataType]) policyFields[dataType] = {};
-                policyFields[dataType][field] = field === 'enabled' ? (value === 'on') : parseInt(value);
-            }
-
-            // Prepare updates
-            Object.keys(policyFields).forEach(dataType => {
-                updates.push({
-                    data_type: dataType,
-                    retention_days: policyFields[dataType].days,
-                    enabled: policyFields[dataType].enabled || false
-                });
-            });
-
-            // Send updates
-            Promise.all(updates.map(update =>
-                fetch('/api/cleanup/policies', {
+        function runPipeline(pipelineId) {
+            if (confirm(`Run pipeline: ${pipelineId}?`)) {
+                fetch(`/api/pipeline/run`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(update)
-                }).then(r => r.json())
-            ))
-            .then(results => {
-                const successCount = results.filter(r => r.success).length;
-                const failCount = results.length - successCount;
-
-                if (failCount === 0) {
-                    alert(`✅ All ${successCount} policies updated successfully!`);
-                    $('#cleanupConfigModal').modal('hide');
-                    loadCleanupData(); // Refresh data
-                } else {
-                    alert(`⚠️ ${successCount} policies updated, ${failCount} failed. Check console for details.`);
-                    console.log('Policy update results:', results);
-                }
-            })
-            .catch(error => {
-                alert('Error saving policies: ' + error.message);
-            });
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pipeline: pipelineId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Pipeline started successfully!');
+                        loadPipelineLifecycle(); // Refresh the data
+                    } else {
+                        alert('Failed to start pipeline: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    alert('Error starting pipeline: ' + error.message);
+                });
+            }
         }
 
-        // Show cleanup error
-        function showCleanupError(message) {
-            const container = document.getElementById('cleanupHistoryContainer');
-            container.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+        function viewPipeline(pipelineId) {
+            window.location.href = `/pipeline-control?pipeline=${pipelineId}`;
         }
 
-        // Initialize cleanup functionality when page loads
+        // Simplified pipeline management - keeping it fast and focused
+
+        // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Add cleanup event listeners
-            document.getElementById('refreshCleanupBtn').addEventListener('click', loadCleanupData);
-            document.getElementById('dryRunCleanupBtn').addEventListener('click', dryRunCleanup);
-            document.getElementById('runCleanupBtn').addEventListener('click', runCleanup);
+            console.log('DOMContentLoaded fired - initializing pipeline management');
 
-            // Load cleanup data when cleanup config modal is shown
-            document.getElementById('cleanupConfigModal').addEventListener('show.bs.modal', loadCleanupPoliciesForConfig);
+            // Initialize existing pipeline lifecycle
+            console.log('Calling loadPipelineLifecycle');
+            loadPipelineLifecycle();
 
-            // Load initial cleanup data
-            loadCleanupData();
+            // Pipeline management initialized
+            console.log('Pipeline management page loaded successfully');
         });
 
+        // Clean, simplified pipeline management - no complex functions needed
     </script>
 </body>
 </html>

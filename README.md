@@ -173,7 +173,6 @@ docker-compose up -d
 │   ├── templates/                # Code templates
 │   └── testing/                  # Testing framework
 │
-├── docker/                       # 🐳 Container Configurations
 ├── infrastructure/               # ☁️ Infrastructure as Code
 ├── dashboard/                    # 🌐 Web Dashboard
 └── docs/                         # 📚 Documentation

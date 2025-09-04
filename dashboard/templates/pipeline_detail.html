@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Details - FOSS Data Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+
+        .step-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .connection-line {
+            position: relative;
+            height: 2px;
+            background: #e9ecef;
+            margin: 20px 0;
+        }
+        .connection-line::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            top: -4px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid #e9ecef;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-running { background-color: #28a745; animation: pulse 2s infinite; }
+        .status-completed { background-color: #28a745; }
+        .status-pending { background-color: #ffc107; }
+        .status-failed { background-color: #dc3545; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Pipeline Flow Canvas Styles */
+        .pipeline-canvas {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            min-height: 200px;
+        }
+
+        .flow-node {
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 16px;
+            min-width: 140px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .flow-node:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            border-color: #007bff;
+        }
+
+        .flow-node.start-node {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        }
+
+        .flow-node.staging-node {
+            border-color: #ffc107;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        }
+
+        .flow-node.transform-node {
+            border-color: #007bff;
+            background: linear-gradient(135deg, #cce5ff 0%, #99d6ff 100%);
+        }
+
+        .flow-node.output-node {
+            border-color: #6f42c1;
+            background: linear-gradient(135deg, #e7d9ff 0%, #d4c4f7 100%);
+        }
+
+        .flow-node.end-node {
+            border-color: #dc3545;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        }
+
+        .node-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+
+        .node-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #495057;
+        }
+
+        .node-desc {
+            color: #6c757d;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .node-meta {
+            color: #868e96;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .flow-arrow {
+            color: #6c757d;
+            font-size: 18px;
+            margin: 0 10px;
+            opacity: 0.6;
+        }
+
+        .config-links {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .config-link {
+            padding: 8px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #495057;
+            background: rgba(255,255,255,0.8);
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .config-link:hover {
+            background: white;
+            border-color: #007bff;
+            color: #007bff;
+            text-decoration: none;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .pipeline-canvas {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .flow-arrow {
+                transform: rotate(90deg);
+                margin: 10px 0;
+            }
+
+            .flow-node {
+                min-width: 120px;
+            }
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .flow-connector {
+            position: relative;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .flow-connector::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #cd7f32, #c0c0c0, #ffd700);
+        }
+        .flow-connector i {
+            background: white;
+            padding: 8px;
+            border-radius: 50%;
+            border: 2px solid #667eea;
+            position: relative;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-cogs"></i> FOSS Data Platform
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fas fa-home"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/pipeline-management"><i class="fas fa-cogs"></i> Pipelines</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/data-browser"><i class="fas fa-search"></i> Data</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/health"><i class="fas fa-heartbeat"></i> Health</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="d-flex align-items-center mb-3">
+                    <a href="/pipeline-management" class="btn btn-outline-secondary me-3">
+                        <i class="fas fa-arrow-left"></i> Back to Pipelines
+                    </a>
+                    <div>
+                        <h1 class="display-5 mb-0">
+                            <i class="fas fa-project-diagram text-primary"></i>
+                            <span id="pipelineName">Pipeline Details</span>
+                        </h1>
+                        <p class="lead text-muted mb-0" id="pipelineDescription">Interactive pipeline flow visualization</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-auto">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" onclick="runPipeline()">
+                        <i class="fas fa-play"></i> Run Pipeline
+                    </button>
+                    <button class="btn btn-outline-success" onclick="generateReport()">
+                        <i class="fas fa-chart-bar"></i> Generate Report
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipeline Overview -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card metric-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <h3 class="mb-2" id="totalRuns">0</h3>
+                        <p class="mb-0">Total Runs</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;">
+                    <div class="card-body">
+                        <h3 class="mb-2" id="successRate">0%</h3>
+                        <p class="mb-0">Success Rate</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white;">
+                    <div class="card-body">
+                        <h3 class="mb-2" id="lastRunTime">-</h3>
+                        <p class="mb-0">Last Run</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center border-0 shadow-sm" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white;">
+                    <div class="card-body">
+                        <h3 class="mb-2" id="currentStatus">Unknown</h3>
+                        <p class="mb-0">Current Status</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Pipeline Flow Canvas -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-project-diagram"></i> Pipeline Flow Canvas
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Flow Canvas Container -->
+                        <div class="pipeline-canvas">
+                            <!-- Start Node -->
+                            <div class="flow-node start-node" onclick="openFileEditor('pipelines/stavanger_parking/dbt/scripts/download_data.py')">
+                                <div class="node-icon">
+                                    <i class="fas fa-play-circle"></i>
+                                </div>
+                                <div class="node-content">
+                                    <h6 class="node-title">Data Ingestion</h6>
+                                    <small class="node-desc">API Integration</small>
+                                </div>
+                                <div class="node-meta">
+                                    <small>download_data.py</small>
+                                </div>
+                            </div>
+
+                            <!-- Connection Arrow 1 -->
+                            <div class="flow-arrow">
+                                <i class="fas fa-arrow-right"></i>
+                            </div>
+
+                            <!-- Staging Node -->
+                            <div class="flow-node staging-node" onclick="openFileEditor('pipelines/stavanger_parking/dbt/models/staging/stg_parking_data.sql')">
+                                <div class="node-icon">
+                                    <i class="fas fa-database"></i>
+                                </div>
+                                <div class="node-content">
+                                    <h6 class="node-title">Staging Layer</h6>
+                                    <small class="node-desc">Raw Data Processing</small>
+                                </div>
+                                <div class="node-meta">
+                                    <small>stg_parking_data.sql</small>
+                                </div>
+                            </div>
+
+                            <!-- Connection Arrow 2 -->
+                            <div class="flow-arrow">
+                                <i class="fas fa-arrow-right"></i>
+                            </div>
+
+                            <!-- Transform Node -->
+                            <div class="flow-node transform-node" onclick="openFileEditor('pipelines/stavanger_parking/dbt/models/marts/core/dim_parking_locations.sql')">
+                                <div class="node-icon">
+                                    <i class="fas fa-cogs"></i>
+                                </div>
+                                <div class="node-content">
+                                    <h6 class="node-title">Transformation</h6>
+                                    <small class="node-desc">Business Logic</small>
+                                </div>
+                                <div class="node-meta">
+                                    <small>Core Models</small>
+                                </div>
+                            </div>
+
+                            <!-- Connection Arrow 3 -->
+                            <div class="flow-arrow">
+                                <i class="fas fa-arrow-right"></i>
+                            </div>
+
+                            <!-- Output Node -->
+                            <div class="flow-node output-node" onclick="openFileEditor('pipelines/stavanger_parking/dbt/models/marts/core/fct_parking_utilization.sql')">
+                                <div class="node-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="node-content">
+                                    <h6 class="node-title">Analytics Ready</h6>
+                                    <small class="node-desc">Fact & Dimension Tables</small>
+                                </div>
+                                <div class="node-meta">
+                                    <small>Mart Tables</small>
+                                </div>
+                            </div>
+
+                            <!-- Connection Arrow 4 -->
+                            <div class="flow-arrow">
+                                <i class="fas fa-arrow-right"></i>
+                            </div>
+
+                            <!-- End Node -->
+                            <div class="flow-node end-node" onclick="openFileEditor('pipelines/stavanger_parking/dbt/dbt_project.yml')">
+                                <div class="node-icon">
+                                    <i class="fas fa-flag-checkered"></i>
+                                </div>
+                                <div class="node-content">
+                                    <h6 class="node-title">Pipeline Complete</h6>
+                                    <small class="node-desc">Ready for Consumption</small>
+                                </div>
+                                <div class="node-meta">
+                                    <small>dbt_project.yml</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Configuration Quick Access -->
+                        <div class="mt-4 pt-3 border-top">
+                            <h6 class="text-muted mb-3">
+                                <i class="fas fa-wrench"></i> Configuration Files
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="config-links">
+                                        <a href="#" onclick="openFileEditor('pipelines/stavanger_parking/dbt/profiles.yml')" class="config-link">
+                                            <i class="fas fa-key text-success me-2"></i>
+                                            profiles.yml
+                                        </a>
+                                        <a href="#" onclick="openFileEditor('pipelines/stavanger_parking/dbt/models/sources.yml')" class="config-link">
+                                            <i class="fas fa-plug text-info me-2"></i>
+                                            sources.yml
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="config-links">
+                                        <a href="#" onclick="openFileEditor('docker-compose.yml')" class="config-link">
+                                            <i class="fab fa-docker text-primary me-2"></i>
+                                            docker-compose.yml
+                                        </a>
+                                        <a href="#" onclick="openFileEditor('pipelines/stavanger_parking/dbt/models/medallion_architecture.md')" class="config-link">
+                                            <i class="fas fa-file-alt text-secondary me-2"></i>
+                                            Architecture Docs
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i> Click any element to open its configuration file
+                            </small>
+                            <div>
+                                <button class="btn btn-outline-primary btn-sm me-2" onclick="openInVSCode()">
+                                    <i class="fas fa-code"></i> Open in VS Code
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="openJupyterLab()">
+                                    <i class="fab fa-jupyter"></i> JupyterLab
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipeline Logs and Operations -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history"></i> Recent Operations
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="operationsContainer">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Loading pipeline operations...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Get pipeline ID from URL
+        const pipelineId = window.location.pathname.split('/').pop();
+
+        // Medallion Flow Variables
+        let flowRefreshInterval = null;
+        let cachedPipelineData = null;
+        let cachedOperationsData = null;
+
+        function initMedallionFlow() {
+            loadMedallionFlow();
+            if (document.getElementById('flowAutoRefresh').checked) {
+                startFlowAutoRefresh();
+            }
+        }
+
+        function startFlowAutoRefresh() {
+            stopFlowAutoRefresh();
+            flowRefreshInterval = setInterval(() => {
+                loadMedallionFlow();
+            }, 30000); // Refresh every 30 seconds
+        }
+
+        function stopFlowAutoRefresh() {
+            if (flowRefreshInterval) {
+                clearInterval(flowRefreshInterval);
+                flowRefreshInterval = null;
+            }
+        }
+
+        function loadMedallionFlow() {
+            Promise.all([
+                fetch('/api/pipeline/list').then(r => r.json()),
+                fetch('/api/operations/status').then(r => r.json()).catch(() => ({operations: []}))
+            ])
+            .then(([pipelineData, operationsData]) => {
+                cachedPipelineData = pipelineData;
+                cachedOperationsData = operationsData;
+
+                // Update pipeline info if we have data
+                if (pipelineData.success && pipelineData.pipelines) {
+                    const pipeline = pipelineData.pipelines.find(p => p.id === pipelineId);
+                    if (pipeline) {
+                        updatePipelineInfo(pipeline);
+                    }
+                }
+
+                updateOperationsList(operationsData);
+            })
+            .catch(error => {
+                console.error('Error loading pipeline data:', error);
+            });
+        }
+
+        function updatePipelineInfo(pipeline) {
+            document.getElementById('pipelineName').textContent = pipeline.name || 'Unknown Pipeline';
+            document.getElementById('pipelineDescription').textContent = pipeline.description || 'Data pipeline with interactive flow visualization';
+
+            // Update metrics (mock data for now)
+            document.getElementById('totalRuns').textContent = pipeline.run_count || '0';
+            document.getElementById('successRate').textContent = pipeline.success_rate ? (pipeline.success_rate * 100).toFixed(1) + '%' : '0%';
+            document.getElementById('lastRunTime').textContent = pipeline.last_run ? new Date(pipeline.last_run).toLocaleString() : 'Never';
+            document.getElementById('currentStatus').textContent = pipeline.status || 'Unknown';
+        }
+
+
+
+
+        function updateOperationsList(operationsData) {
+            const container = document.getElementById('operationsContainer');
+
+            if (!operationsData || !operationsData.operations) {
+                container.innerHTML = '<div class="alert alert-info text-center">No operations data available</div>';
+                return;
+            }
+
+            const operations = operationsData.operations.slice(0, 10); // Show last 10 operations
+
+            if (operations.length === 0) {
+                container.innerHTML = '<div class="alert alert-info text-center">No recent operations found</div>';
+                return;
+            }
+
+            let html = `
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Operation</th>
+                                <th>Status</th>
+                                <th>Start Time</th>
+                                <th>Duration</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            operations.forEach(op => {
+                const startTime = new Date(op.start_time).toLocaleString();
+                const duration = op.end_time ?
+                    Math.round((new Date(op.end_time) - new Date(op.start_time)) / 1000) + 's' :
+                    'Running';
+
+                const statusBadge = op.status === 'success' ? 'success' :
+                                   op.status === 'failed' ? 'danger' :
+                                   op.status === 'running' ? 'primary' : 'secondary';
+
+                html += `
+                    <tr>
+                        <td><strong>${op.operation_name || op.name}</strong></td>
+                        <td><span class="badge bg-${statusBadge}">${op.status}</span></td>
+                        <td><small class="text-muted">${startTime}</small></td>
+                        <td><small>${duration}</small></td>
+                        <td><small class="text-muted">${op.details || 'No details'}</small></td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // File editing functions
+        function openFileEditor(filePath) {
+            const fullPath = `/home/gunnar/git/foss-dataplatform/${filePath}`;
+
+            // Try to open file in VS Code using vscode:// protocol
+            const vscodeUrl = `vscode://file${fullPath}`;
+
+            // Try to open in new window/tab first
+            let newWindow = window.open(vscodeUrl, '_blank');
+
+            if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                // If VS Code protocol fails, provide clear instructions
+                const fileName = filePath.split('/').pop();
+                alert(`${fileName} could not be opened automatically.\n\n📝 To edit this file:\n\n1. Open VS Code\n2. File → Open...\n3. Navigate to: ${fullPath}\n\n💡 Alternative: Use any text editor like nano, vim, or sublime:\n   nano ${fullPath}`);
+            } else {
+                // Close the window immediately as the protocol should handle it
+                setTimeout(() => {
+                    if (newWindow && !newWindow.closed) {
+                        newWindow.close();
+                    }
+                }, 1000);
+            }
+        }
+
+        function openInVSCode() {
+            // Open the entire project in VS Code
+            const projectPath = '/home/gunnar/git/foss-dataplatform';
+            const vscodeUrl = `vscode://file${projectPath}`;
+
+            let newWindow = window.open(vscodeUrl, '_blank');
+
+            if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                alert(`To open the project in VS Code:\n\n1. Open VS Code\n2. File → Open Folder...\n3. Navigate to: ${projectPath}\n\n💡 Pro tip: You can also run this command in terminal:\n   code ${projectPath}`);
+            } else {
+                // Close the window immediately as the protocol should handle it
+                setTimeout(() => {
+                    if (newWindow && !newWindow.closed) {
+                        newWindow.close();
+                    }
+                }, 1000);
+            }
+        }
+
+        function openJupyterLab() {
+            const jupyterLabUrl = `http://localhost:8888/lab/tree/pipelines/stavanger_parking`;
+            let newWindow = window.open(jupyterLabUrl, '_blank');
+
+            if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                // Jupyter not running
+                const startCommand = 'cd /home/gunnar/git/foss-dataplatform && jupyter lab --port=8888';
+                alert(`🚀 JupyterLab is not currently running.\n\nTo start JupyterLab:\n\n1. Open a terminal\n2. Run: ${startCommand}\n\n📚 This will start JupyterLab on port 8888 with access to:\n   • All pipeline notebooks\n   • Data exploration tools\n   • Development environment\n\n💡 Pro tip: You can also run 'make jupyter' if available.`);
+            } else {
+                // Successfully opened
+                console.log('JupyterLab opened successfully');
+            }
+        }
+
+        // Function to handle data source/bucket navigation
+        function openDataSource(sourceType, sourceName) {
+            // For now, show information about the data source
+            alert(`📊 ${sourceType}: ${sourceName}\n\nThis would open the actual data source in:\n• Database browser\n• Cloud storage console\n• File system explorer\n\nFor this demo, you can explore the data using JupyterLab.`);
+        }
+
+        // Function to handle table navigation
+        function openTable(tableName) {
+            alert(`📋 Table: ${tableName}\n\nThis table contains the processed data ready for analytics.\n\nTo explore this data:\n1. Open JupyterLab\n2. Navigate to the data exploration notebooks\n3. Query the table directly\n\nTable location: pipelines/stavanger_parking/dbt/models/marts/core/`);
+        }
+
+        // Action functions
+        function runPipeline() {
+            alert('Pipeline execution is handled through the CLI. Use: ./tools/cli/run-pipeline.sh ' + pipelineId);
+        }
+
+        function generateReport() {
+            alert('Report generation is available through the data browser. Visit: /data-browser');
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Pipeline detail page loaded for pipeline:', pipelineId);
+
+            // Pipeline detail page initialized
+            console.log('Pipeline detail page ready');
+        });
+    </script>
+</body>
+</html>
